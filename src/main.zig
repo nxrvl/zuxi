@@ -1,66 +1,82 @@
 const std = @import("std");
 const build_options = @import("build_options");
+const cli = @import("core/cli.zig");
+const registry = @import("core/registry.zig");
+const context = @import("core/context.zig");
+const errors = @import("core/errors.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
 
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
     const stdout = std.fs.File.stdout().deprecatedWriter();
+    const stderr = std.fs.File.stderr().deprecatedWriter();
 
-    var args = try std.process.ArgIterator.initWithAllocator(std.heap.page_allocator);
-    defer args.deinit();
+    var args_iter = try std.process.ArgIterator.initWithAllocator(allocator);
+    defer args_iter.deinit();
 
-    // Skip the program name.
-    _ = args.skip();
+    // Skip program name.
+    _ = args_iter.skip();
 
-    const first_arg = args.next();
-
-    if (first_arg) |arg| {
-        if (std.mem.eql(u8, arg, "--version") or std.mem.eql(u8, arg, "-v")) {
-            try printVersion(stdout);
-            return;
-        }
-        if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
-            try printHelp(stdout);
-            return;
-        }
-        // Future: dispatch to command registry
-        try stdout.print("zuxi: unknown command '{s}'\n", .{arg});
-        try stdout.print("Run 'zuxi --help' for usage.\n", .{});
-        std.process.exit(1);
-    } else {
-        // No arguments: will launch TUI in the future.
-        try printVersion(stdout);
-        try stdout.print("TUI mode coming soon. Use 'zuxi --help' for CLI usage.\n", .{});
+    // Collect remaining args into a fixed buffer.
+    var args_buf: [128][]const u8 = undefined;
+    var args_count: usize = 0;
+    while (args_iter.next()) |arg| {
+        if (args_count >= args_buf.len) break;
+        args_buf[args_count] = arg;
+        args_count += 1;
     }
-}
+    const args_slice = args_buf[0..args_count];
 
-pub fn printVersion(writer: anytype) !void {
-    const mode_str = switch (build_options.build_mode) {
-        .lite => "lite",
-        .full => "full",
+    const reg = registry.getGlobalRegistry();
+
+    const parse_result = cli.parseArgs(args_slice) catch |err| {
+        try errors.printError(stderr, err, null);
+        std.process.exit(1);
     };
-    try writer.print("{s} v{s} ({s})\n", .{ app_name, version, mode_str });
-}
 
-pub fn printHelp(writer: anytype) !void {
-    try writer.print(
-        \\{s} v{s} - Offline developer toolkit
-        \\
-        \\Usage: {s} <command> [subcommand] [flags]
-        \\       {s}                          (launch TUI)
-        \\
-        \\Global flags:
-        \\  --help, -h       Show this help
-        \\  --version, -v    Show version
-        \\  --output <file>  Write output to file
-        \\  --format <fmt>   Output format: json, text
-        \\  --no-color       Disable colored output
-        \\  --quiet          Suppress non-essential output
-        \\
-        \\Commands will be available in future versions.
-        \\
-    , .{ app_name, version, app_name, app_name });
+    switch (parse_result) {
+        .version => {
+            try cli.printVersion(stdout);
+        },
+        .help => {
+            try cli.printHelp(stdout, reg);
+        },
+        .command_help => |cmd_name| {
+            try cli.printCommandHelp(stdout, reg, cmd_name);
+        },
+        .tui => {
+            try cli.printVersion(stdout);
+            try stdout.print("TUI mode coming soon. Use 'zuxi --help' for CLI usage.\n", .{});
+        },
+        .command => |invocation| {
+            cli.dispatch(reg, invocation, allocator) catch |err| {
+                // Try to report as a ZuxiError if possible.
+                const zuxi_err: ?errors.ZuxiError = switch (err) {
+                    error.InvalidInput => error.InvalidInput,
+                    error.IoError => error.IoError,
+                    error.FormatError => error.FormatError,
+                    error.InvalidArgument => error.InvalidArgument,
+                    error.MissingArgument => error.MissingArgument,
+                    error.CommandNotFound => error.CommandNotFound,
+                    error.Timeout => error.Timeout,
+                    error.BufferTooSmall => error.BufferTooSmall,
+                    error.NotAvailable => error.NotAvailable,
+                    else => null,
+                };
+                if (zuxi_err) |ze| {
+                    try errors.printError(stderr, ze, null);
+                } else {
+                    try stderr.print("zuxi: unexpected error\n", .{});
+                }
+                std.process.exit(1);
+            };
+        },
+    }
 }
 
 // --- Module references (for test discovery) ---
@@ -68,6 +84,8 @@ comptime {
     _ = @import("core/errors.zig");
     _ = @import("core/context.zig");
     _ = @import("core/io.zig");
+    _ = @import("core/registry.zig");
+    _ = @import("core/cli.zig");
 }
 
 // --- Tests ---
@@ -79,30 +97,6 @@ test "version string is set" {
 
 test "app name is zuxi" {
     try std.testing.expectEqualStrings("zuxi", app_name);
-}
-
-test "printVersion writes correct output" {
-    var buf: [256]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    try printVersion(fbs.writer());
-    const output = fbs.getWritten();
-    try std.testing.expect(std.mem.startsWith(u8, output, "zuxi v0.1.0"));
-    try std.testing.expect(std.mem.indexOf(u8, output, "(full)") != null or
-        std.mem.indexOf(u8, output, "(lite)") != null);
-}
-
-test "printHelp includes usage info" {
-    var buf: [2048]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    try printHelp(fbs.writer());
-    const output = fbs.getWritten();
-    try std.testing.expect(std.mem.indexOf(u8, output, "Usage:") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "--help") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "--version") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "--output") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "--format") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "--no-color") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "--quiet") != null);
 }
 
 test "build mode option exists" {

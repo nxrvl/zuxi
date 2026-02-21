@@ -52,12 +52,12 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Create: `src/core/cli.zig`
 - Modify: `src/main.zig`
 
-- [ ] Implement registry.zig: Command interface (name, description, category, execute fn), Registry struct with register/lookup/list methods
-- [ ] Implement cli.zig: argument parser supporting `zuxi <command> [subcommand] [flags]`, parse global flags (--help, --version, --output, --format, --no-color, --quiet)
-- [ ] Wire up main.zig: parse args -> if no args prepare for TUI (stub for now) -> otherwise dispatch to CLI
-- [ ] Implement --help (list all commands) and --version output
-- [ ] Write tests for registry and CLI parser
-- [ ] Run test suite - must pass before task 4
+- [x] Implement registry.zig: Command interface (name, description, category, execute fn), Registry struct with register/lookup/list methods
+- [x] Implement cli.zig: argument parser supporting `zuxi <command> [subcommand] [flags]`, parse global flags (--help, --version, --output, --format, --no-color, --quiet)
+- [x] Wire up main.zig: parse args -> if no args prepare for TUI (stub for now) -> otherwise dispatch to CLI
+- [x] Implement --help (list all commands) and --version output
+- [x] Write tests for registry and CLI parser
+- [x] Run test suite - must pass before task 4
 
 ### Task 4: jsonfmt command
 
