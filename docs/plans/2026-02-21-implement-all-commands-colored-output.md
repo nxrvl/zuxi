@@ -136,13 +136,13 @@ other formatted outputs.
 - Create: `src/commands/json/yamlstruct.zig`
 - Modify: `src/main.zig`
 
-- [ ] Implement YAML parser: scalars, mappings, sequences, nested structures, comments, quoted strings, multi-line (| and >)
-- [ ] Implement YAML serializer (internal representation -> YAML text)
-- [ ] yamlfmt: parse YAML, re-serialize with consistent 2-space indentation
-- [ ] yamlstruct: parse YAML -> generate Go struct (reuse jsonstruct logic)
-- [ ] Register both commands
-- [ ] Write parser unit tests + command tests
-- [ ] Run project test suite - must pass before task 8
+- [x] Implement YAML parser: scalars, mappings, sequences, nested structures, comments, quoted strings, multi-line (| and >)
+- [x] Implement YAML serializer (internal representation -> YAML text)
+- [x] yamlfmt: parse YAML, re-serialize with consistent 2-space indentation
+- [x] yamlstruct: parse YAML -> generate Go struct (reuse jsonstruct logic)
+- [x] Register both commands
+- [x] Write parser unit tests + command tests
+- [x] Run project test suite - must pass before task 8
 
 ### Task 8: TOML parser + tomlfmt
 
