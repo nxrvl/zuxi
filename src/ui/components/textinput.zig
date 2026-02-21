@@ -193,6 +193,7 @@ pub const TextInput = struct {
         errdefer if (before.len > 0) self.allocator.free(before);
         if (col > 0) @memcpy(before, old_line[0..col]);
         const after = try self.allocator.alloc(u8, old_line.len - col);
+        errdefer if (after.len > 0) self.allocator.free(after);
         if (old_line.len > col) @memcpy(after, old_line[col..]);
 
         // Do the fallible insert before irreversible state changes.

@@ -105,7 +105,9 @@ pub const SplitLayout = struct {
     }
 
     fn rightWidth(self: SplitLayout) u16 {
-        return self.total_width - self.leftWidth();
+        const lw = self.leftWidth();
+        if (self.total_width <= lw) return 1;
+        return self.total_width - lw;
     }
 
     fn usableHeight(self: SplitLayout) u16 {
@@ -117,7 +119,10 @@ pub const SplitLayout = struct {
 
     fn rightTopHeight(self: SplitLayout, usable: u16) u16 {
         const h = @as(u16, @intFromFloat(@as(f32, @floatFromInt(usable)) * self.top_ratio));
-        return @max(h, 3); // minimum 3 rows
+        const clamped = @max(h, 3); // minimum 3 rows
+        // Don't exceed usable height; leave at least 1 row for bottom panel.
+        if (usable <= 1) return usable;
+        return @min(clamped, usable - 1);
     }
 
     /// Update layout dimensions (e.g., on terminal resize).
