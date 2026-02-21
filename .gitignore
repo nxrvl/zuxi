@@ -4,3 +4,7 @@ docs/
 
 # ralphex progress logs
 .ralphex/progress/
+
+# Zig build artifacts
+.zig-cache/
+zig-out/
