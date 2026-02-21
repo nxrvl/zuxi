@@ -18,6 +18,7 @@ const slug_cmd = @import("commands/encoding/slug.zig");
 const urlencode_cmd = @import("commands/encoding/urlencode.zig");
 const numbers_cmd = @import("commands/dev/numbers.zig");
 const hmac_cmd = @import("commands/security/hmac.zig");
+const cron_cmd = @import("commands/time/cron.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -66,6 +67,7 @@ pub fn main() !void {
         urlencode_cmd.command,
         numbers_cmd.command,
         hmac_cmd.command,
+        cron_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -147,6 +149,7 @@ comptime {
     _ = @import("commands/encoding/urlencode.zig");
     _ = @import("commands/dev/numbers.zig");
     _ = @import("commands/security/hmac.zig");
+    _ = @import("commands/time/cron.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

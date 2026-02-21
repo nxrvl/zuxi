@@ -97,14 +97,14 @@ other formatted outputs.
 - Create: `src/commands/time/cron.zig`
 - Modify: `src/main.zig`
 
-- [ ] cron: parse and explain cron expressions
+- [x] cron: parse and explain cron expressions
   - Parse standard 5-field cron (minute hour dom month dow)
   - Output human-readable description
   - Show next 5 scheduled run times
   - Support common patterns: */N, ranges (1-5), lists (1,3,5), special strings (@daily, @hourly)
-- [ ] Register command
-- [ ] Write tests for common cron expressions
-- [ ] Run project test suite - must pass before task 6
+- [x] Register command
+- [x] Write tests for common cron expressions
+- [x] Run project test suite - must pass before task 6
 
 ### Task 6: JSON toolkit - jsonrepair, jsonpath, jsonstruct
 
