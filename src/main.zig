@@ -19,6 +19,9 @@ const urlencode_cmd = @import("commands/encoding/urlencode.zig");
 const numbers_cmd = @import("commands/dev/numbers.zig");
 const hmac_cmd = @import("commands/security/hmac.zig");
 const cron_cmd = @import("commands/time/cron.zig");
+const jsonrepair_cmd = @import("commands/json/jsonrepair.zig");
+const jsonpath_cmd = @import("commands/json/jsonpath.zig");
+const jsonstruct_cmd = @import("commands/json/jsonstruct.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -68,6 +71,9 @@ pub fn main() !void {
         numbers_cmd.command,
         hmac_cmd.command,
         cron_cmd.command,
+        jsonrepair_cmd.command,
+        jsonpath_cmd.command,
+        jsonstruct_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -150,6 +156,9 @@ comptime {
     _ = @import("commands/dev/numbers.zig");
     _ = @import("commands/security/hmac.zig");
     _ = @import("commands/time/cron.zig");
+    _ = @import("commands/json/jsonrepair.zig");
+    _ = @import("commands/json/jsonpath.zig");
+    _ = @import("commands/json/jsonstruct.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

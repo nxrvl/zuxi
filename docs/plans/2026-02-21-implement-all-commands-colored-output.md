@@ -114,19 +114,19 @@ other formatted outputs.
 - Create: `src/commands/json/jsonstruct.zig`
 - Modify: `src/main.zig`
 
-- [ ] jsonrepair: fix common broken JSON issues
+- [x] jsonrepair: fix common broken JSON issues
   - Fix: trailing commas, single quotes -> double quotes, unquoted keys, JS comments removal
   - Output repaired JSON or error if unrepairable
-- [ ] jsonpath: query JSON with dot-notation paths
+- [x] jsonpath: query JSON with dot-notation paths
   - Support: $.key, $.nested.key, $.array[0], $.array[*].field
   - Output matching value(s) with colored JSON
-- [ ] jsonstruct: generate Go struct from JSON
+- [x] jsonstruct: generate Go struct from JSON
   - Infer Go types from JSON values
   - Nested objects -> nested structs
   - PascalCase field names, json struct tags
-- [ ] Register all 3 commands
-- [ ] Write tests for each command
-- [ ] Run project test suite - must pass before task 7
+- [x] Register all 3 commands
+- [x] Write tests for each command
+- [x] Run project test suite - must pass before task 7
 
 ### Task 7: YAML parser + yamlfmt + yamlstruct
 
