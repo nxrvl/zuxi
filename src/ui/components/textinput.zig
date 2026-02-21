@@ -98,6 +98,7 @@ pub const TextInput = struct {
                 const line_data = content[start..i];
                 if (line_data.len > 0) {
                     const line = try self.allocator.alloc(u8, line_data.len);
+                    errdefer self.allocator.free(line);
                     @memcpy(line, line_data);
                     try self.lines.append(self.allocator, line);
                 } else {
@@ -109,6 +110,7 @@ pub const TextInput = struct {
         const line_data = content[start..];
         if (line_data.len > 0) {
             const line = try self.allocator.alloc(u8, line_data.len);
+            errdefer self.allocator.free(line);
             @memcpy(line, line_data);
             try self.lines.append(self.allocator, line);
         } else {

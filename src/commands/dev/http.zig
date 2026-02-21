@@ -196,7 +196,7 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
     // Read response body.
     var transfer_buf: [8192]u8 = undefined;
     const body_reader = response.reader(&transfer_buf);
-    const response_body = body_reader.allocRemaining(ctx.allocator, .unlimited) catch {
+    const response_body = body_reader.allocRemaining(ctx.allocator, @enumFromInt(io.max_input_size)) catch {
         return; // No body or read error; headers already displayed.
     };
     defer ctx.allocator.free(response_body);

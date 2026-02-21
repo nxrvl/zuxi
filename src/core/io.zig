@@ -32,7 +32,10 @@ pub fn readAllTrimmed(file: std.fs.File, allocator: std.mem.Allocator) ![]u8 {
         return resized;
     }
     // remap failed, copy to a new allocation.
-    const result = try allocator.alloc(u8, trimmed_len);
+    const result = allocator.alloc(u8, trimmed_len) catch |err| {
+        allocator.free(data);
+        return err;
+    };
     @memcpy(result, data[0..trimmed_len]);
     allocator.free(data);
     return result;
