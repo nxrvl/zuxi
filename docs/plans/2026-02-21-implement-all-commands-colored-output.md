@@ -151,12 +151,12 @@ other formatted outputs.
 - Create: `src/commands/json/tomlfmt.zig`
 - Modify: `src/main.zig`
 
-- [ ] Implement TOML parser: key-value pairs, tables, arrays, arrays of tables, strings, integers, floats, booleans, datetime, inline tables, comments
-- [ ] Implement TOML serializer
-- [ ] tomlfmt: parse and re-format with consistent style
-- [ ] Register command
-- [ ] Write parser tests + command tests
-- [ ] Run project test suite - must pass before task 9
+- [x] Implement TOML parser: key-value pairs, tables, arrays, arrays of tables, strings, integers, floats, booleans, datetime, inline tables, comments
+- [x] Implement TOML serializer
+- [x] tomlfmt: parse and re-format with consistent style
+- [x] Register command
+- [x] Write parser tests + command tests
+- [x] Run project test suite - must pass before task 9
 
 ### Task 9: XML parser + xmlfmt
 

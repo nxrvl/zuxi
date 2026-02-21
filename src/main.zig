@@ -24,6 +24,7 @@ const jsonpath_cmd = @import("commands/json/jsonpath.zig");
 const jsonstruct_cmd = @import("commands/json/jsonstruct.zig");
 const yamlfmt_cmd = @import("commands/json/yamlfmt.zig");
 const yamlstruct_cmd = @import("commands/json/yamlstruct.zig");
+const tomlfmt_cmd = @import("commands/json/tomlfmt.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -78,6 +79,7 @@ pub fn main() !void {
         jsonstruct_cmd.command,
         yamlfmt_cmd.command,
         yamlstruct_cmd.command,
+        tomlfmt_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -166,6 +168,8 @@ comptime {
     _ = @import("commands/json/yamlfmt.zig");
     _ = @import("commands/json/yamlstruct.zig");
     _ = @import("formats/yaml.zig");
+    _ = @import("formats/toml.zig");
+    _ = @import("commands/json/tomlfmt.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");
