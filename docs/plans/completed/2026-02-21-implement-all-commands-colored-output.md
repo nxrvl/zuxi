@@ -300,5 +300,5 @@ other formatted outputs.
 
 ### Task 17: Update documentation
 
-- [ ] update CLAUDE.md if internal patterns changed (new src/formats/ directory, new categories)
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update CLAUDE.md if internal patterns changed (new src/formats/ directory, new categories)
+- [x] move this plan to `docs/plans/completed/`
