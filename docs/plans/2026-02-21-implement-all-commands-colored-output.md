@@ -290,13 +290,13 @@ other formatted outputs.
 
 ### Task 16: Verify acceptance criteria
 
-- [ ] manual test: zuxi jsonfmt prettify '{"key":"value"}' produces colored output on TTY
-- [ ] manual test: zuxi jsonfmt prettify --no-color produces plain output
-- [ ] manual test: echo '{"a":1}' | zuxi jsonfmt produces uncolored output (pipe detection)
-- [ ] manual test: all new commands appear in zuxi --help grouped by category
-- [ ] manual test: spot-check 5+ commands end-to-end (count, urlencode, cron, csv2md, gitignore)
-- [ ] run full test suite: zig build test
-- [ ] verify build succeeds: zig build
+- [x] manual test: zuxi jsonfmt prettify '{"key":"value"}' produces colored output on TTY
+- [x] manual test: zuxi jsonfmt prettify --no-color produces plain output
+- [x] manual test: echo '{"a":1}' | zuxi jsonfmt produces uncolored output (pipe detection)
+- [x] manual test: all new commands appear in zuxi --help grouped by category
+- [x] manual test: spot-check 5+ commands end-to-end (count, urlencode, cron, csv2md, gitignore)
+- [x] run full test suite: zig build test
+- [x] verify build succeeds: zig build
 
 ### Task 17: Update documentation
 
