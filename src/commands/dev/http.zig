@@ -207,17 +207,28 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
     if (is_json_response) {
         if (prettyPrintJson(ctx.allocator, response_body)) |formatted| {
             defer ctx.allocator.free(formatted);
-            try io.writeOutput(ctx, formatted);
-            try io.writeOutput(ctx, "\n");
+            // Build complete output in one write to avoid file truncation with --output.
+            const out = try ctx.allocator.alloc(u8, formatted.len + 1);
+            defer ctx.allocator.free(out);
+            @memcpy(out[0..formatted.len], formatted);
+            out[formatted.len] = '\n';
+            try io.writeOutput(ctx, out);
             return;
         } else |_| {
             // Not valid JSON; fall through to raw output.
         }
     }
 
-    try io.writeOutput(ctx, response_body);
-    if (response_body.len > 0 and response_body[response_body.len - 1] != '\n') {
-        try io.writeOutput(ctx, "\n");
+    // Build complete output in one write to avoid file truncation with --output.
+    const needs_newline = response_body.len > 0 and response_body[response_body.len - 1] != '\n';
+    if (needs_newline) {
+        const out = try ctx.allocator.alloc(u8, response_body.len + 1);
+        defer ctx.allocator.free(out);
+        @memcpy(out[0..response_body.len], response_body);
+        out[response_body.len] = '\n';
+        try io.writeOutput(ctx, out);
+    } else {
+        try io.writeOutput(ctx, response_body);
     }
 }
 

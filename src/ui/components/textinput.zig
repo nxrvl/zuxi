@@ -96,16 +96,24 @@ pub const TextInput = struct {
         for (content, 0..) |c, i| {
             if (c == '\n') {
                 const line_data = content[start..i];
-                const line = try self.allocator.alloc(u8, line_data.len);
-                @memcpy(line, line_data);
-                try self.lines.append(self.allocator, line);
+                if (line_data.len > 0) {
+                    const line = try self.allocator.alloc(u8, line_data.len);
+                    @memcpy(line, line_data);
+                    try self.lines.append(self.allocator, line);
+                } else {
+                    try self.lines.append(self.allocator, emptyLine(self.allocator));
+                }
                 start = i + 1;
             }
         }
         const line_data = content[start..];
-        const line = try self.allocator.alloc(u8, line_data.len);
-        @memcpy(line, line_data);
-        try self.lines.append(self.allocator, line);
+        if (line_data.len > 0) {
+            const line = try self.allocator.alloc(u8, line_data.len);
+            @memcpy(line, line_data);
+            try self.lines.append(self.allocator, line);
+        } else {
+            try self.lines.append(self.allocator, emptyLine(self.allocator));
+        }
 
         self.cursor_row = 0;
         self.cursor_col = 0;
@@ -182,13 +190,16 @@ pub const TextInput = struct {
         const col = @min(self.cursor_col, old_line.len);
 
         const before = try self.allocator.alloc(u8, col);
+        errdefer if (before.len > 0) self.allocator.free(before);
         if (col > 0) @memcpy(before, old_line[0..col]);
         const after = try self.allocator.alloc(u8, old_line.len - col);
         if (old_line.len > col) @memcpy(after, old_line[col..]);
-        if (old_line.len > 0) self.allocator.free(old_line);
 
-        self.lines.items[self.cursor_row] = before;
+        // Do the fallible insert before irreversible state changes.
         try self.lines.insert(self.allocator, self.cursor_row + 1, after);
+        // All allocations succeeded; commit non-fallible changes.
+        if (old_line.len > 0) self.allocator.free(old_line);
+        self.lines.items[self.cursor_row] = before;
         self.cursor_row += 1;
         self.cursor_col = 0;
         self.ensureCursorVisible();

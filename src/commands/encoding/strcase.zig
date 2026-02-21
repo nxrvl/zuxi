@@ -61,6 +61,7 @@ fn splitIntoWords(allocator: std.mem.Allocator, input: []const u8) ![][]u8 {
         if (c == '_' or c == '-' or c == ' ' or c == '\t') {
             if (i > word_start) {
                 const word = try toLowerAlloc(allocator, input[word_start..i]);
+                errdefer allocator.free(word);
                 try words.append(allocator, word);
             }
             i += 1;
@@ -72,6 +73,7 @@ fn splitIntoWords(allocator: std.mem.Allocator, input: []const u8) ![][]u8 {
             // Check if previous char was lowercase (camelCase boundary).
             if (i > 0 and std.ascii.isLower(input[i - 1])) {
                 const word = try toLowerAlloc(allocator, input[word_start..i]);
+                errdefer allocator.free(word);
                 try words.append(allocator, word);
                 word_start = i;
                 i += 1;
@@ -80,6 +82,7 @@ fn splitIntoWords(allocator: std.mem.Allocator, input: []const u8) ![][]u8 {
             // Check for ALLCAPS followed by a lowercase (e.g., "XMLParser" -> "XML", "Parser").
             if (i > 0 and std.ascii.isUpper(input[i - 1]) and i + 1 < input.len and std.ascii.isLower(input[i + 1])) {
                 const word = try toLowerAlloc(allocator, input[word_start..i]);
+                errdefer allocator.free(word);
                 try words.append(allocator, word);
                 word_start = i;
                 i += 1;
@@ -91,6 +94,7 @@ fn splitIntoWords(allocator: std.mem.Allocator, input: []const u8) ![][]u8 {
     // Capture the last word.
     if (word_start < input.len) {
         const word = try toLowerAlloc(allocator, input[word_start..]);
+        errdefer allocator.free(word);
         try words.append(allocator, word);
     }
 
