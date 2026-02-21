@@ -29,9 +29,12 @@ pub fn execute(ctx: context.Context, _: ?[]const u8) anyerror!void {
         return error.FormatError;
     }
 
-    try io.writeOutput(ctx, repaired);
-    const writer = ctx.stdoutWriter();
-    try writer.writeByte('\n');
+    // Append newline and write through io.writeOutput (respects --output flag).
+    const output = try ctx.allocator.alloc(u8, repaired.len + 1);
+    defer ctx.allocator.free(output);
+    @memcpy(output[0..repaired.len], repaired);
+    output[repaired.len] = '\n';
+    try io.writeOutput(ctx, output);
 }
 
 /// Attempt to repair broken JSON by applying common fixes:
@@ -61,8 +64,13 @@ fn removeComments(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
     var i: usize = 0;
     while (i < input.len) {
         if (input[i] == '"') {
-            // Skip over strings entirely (don't remove comment-like content inside strings).
+            // Skip over double-quoted strings (don't remove comment-like content inside strings).
             const str_end = findStringEndDouble(input, i);
+            try result.appendSlice(allocator, input[i..str_end]);
+            i = str_end;
+        } else if (input[i] == '\'') {
+            // Skip over single-quoted strings (these will be converted to double quotes later).
+            const str_end = findStringEndSingle(input, i);
             try result.appendSlice(allocator, input[i..str_end]);
             i = str_end;
         } else if (i + 1 < input.len and input[i] == '/' and input[i + 1] == '/') {
@@ -220,6 +228,21 @@ fn findStringEndDouble(input: []const u8, pos: usize) usize {
             continue;
         }
         if (input[i] == '"') {
+            return i + 1;
+        }
+        i += 1;
+    }
+    return input.len;
+}
+
+fn findStringEndSingle(input: []const u8, pos: usize) usize {
+    var i = pos + 1;
+    while (i < input.len) {
+        if (input[i] == '\\') {
+            i += 2;
+            continue;
+        }
+        if (input[i] == '\'') {
             return i + 1;
         }
         i += 1;

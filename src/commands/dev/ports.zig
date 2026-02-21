@@ -20,7 +20,9 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
         };
     }
 
-    const writer = ctx.stdoutWriter();
+    var list = std.ArrayList(u8){};
+    defer list.deinit(ctx.allocator);
+    const writer = list.writer(ctx.allocator);
 
     if (comptime builtin.os.tag == .macos) {
         try listPortsMacos(ctx, writer, filter_port);
@@ -31,6 +33,8 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
         try err_writer.print("ports: unsupported platform\n", .{});
         return error.NotAvailable;
     }
+
+    try io.writeOutput(ctx, list.items);
 }
 
 /// Port entry parsed from system output.

@@ -38,23 +38,33 @@ fn slugify(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
     var list = std.ArrayList(u8){};
     defer list.deinit(allocator);
 
-    var view = std.unicode.Utf8View.initUnchecked(input);
-    var it = view.iterator();
-    while (it.nextCodepoint()) |cp| {
-        if (transliterateCyrillic(cp)) |latin| {
-            for (latin) |c| {
-                try list.append(allocator, std.ascii.toLower(c));
-            }
-        } else if (cp < 128) {
-            const c: u8 = @intCast(cp);
-            if (std.ascii.isAlphanumeric(c)) {
-                try list.append(allocator, std.ascii.toLower(c));
+    if (std.unicode.Utf8View.init(input)) |view| {
+        var it = view.iterator();
+        while (it.nextCodepoint()) |cp| {
+            if (transliterateCyrillic(cp)) |latin| {
+                for (latin) |c| {
+                    try list.append(allocator, std.ascii.toLower(c));
+                }
+            } else if (cp < 128) {
+                const c: u8 = @intCast(cp);
+                if (std.ascii.isAlphanumeric(c)) {
+                    try list.append(allocator, std.ascii.toLower(c));
+                } else {
+                    // Replace spaces, punctuation, etc. with hyphen.
+                    try list.append(allocator, '-');
+                }
             } else {
-                // Replace spaces, punctuation, etc. with hyphen.
+                // Non-ASCII, non-Cyrillic: skip.
+            }
+        }
+    } else |_| {
+        // Invalid UTF-8: fall back to byte-by-byte ASCII processing.
+        for (input) |b| {
+            if (std.ascii.isAlphanumeric(b)) {
+                try list.append(allocator, std.ascii.toLower(b));
+            } else {
                 try list.append(allocator, '-');
             }
-        } else {
-            // Non-ASCII, non-Cyrillic: skip.
         }
     }
 

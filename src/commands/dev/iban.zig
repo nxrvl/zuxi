@@ -105,7 +105,7 @@ pub fn validateIban(iban_raw: []const u8) IbanValidation {
     return .{
         .valid = true,
         .reason = "Valid IBAN",
-        .country = country_code,
+        .country = .{ cleaned[0], cleaned[1] },
         .country_name = if (getCountryConfig(country_code)) |c| c.name else null,
     };
 }
@@ -113,7 +113,7 @@ pub fn validateIban(iban_raw: []const u8) IbanValidation {
 const IbanValidation = struct {
     valid: bool,
     reason: []const u8,
-    country: ?[]const u8 = null,
+    country: ?[2]u8 = null,
     country_name: ?[]const u8 = null,
 };
 
@@ -201,11 +201,13 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
                     return error.MissingArgument;
                 }
                 const result = validateIban(inp.data);
-                const writer = ctx.stdoutWriter();
+                var list = std.ArrayList(u8){};
+                defer list.deinit(ctx.allocator);
+                const writer = list.writer(ctx.allocator);
                 if (result.valid) {
                     try writer.print("Valid IBAN\n", .{});
                     if (result.country) |cc| {
-                        try writer.print("Country: {s}", .{cc});
+                        try writer.print("Country: {s}", .{&cc});
                         if (result.country_name) |name| {
                             try writer.print(" ({s})", .{name});
                         }
@@ -214,6 +216,7 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
                 } else {
                     try writer.print("Invalid IBAN: {s}\n", .{result.reason});
                 }
+                try io.writeOutput(ctx, list.items);
             } else {
                 const writer = ctx.stderrWriter();
                 try writer.print("iban validate: IBAN required\n", .{});
@@ -253,8 +256,11 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
                 return error.InvalidInput;
             };
 
-            const writer = ctx.stdoutWriter();
+            var list = std.ArrayList(u8){};
+            defer list.deinit(ctx.allocator);
+            const writer = list.writer(ctx.allocator);
             try writer.print("{s}\n", .{result[0..config.length]});
+            try io.writeOutput(ctx, list.items);
         },
     }
 }

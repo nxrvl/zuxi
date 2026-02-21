@@ -446,16 +446,31 @@ fn findUnquotedColon(content: []const u8) ?usize {
     var i: usize = 0;
     while (i < content.len) {
         const c = content[i];
-        if (c == '\'' or c == '"') {
-            // Skip quoted string.
-            const quote = c;
+        if (c == '"') {
+            // Skip double-quoted string (backslash escapes apply).
             i += 1;
             while (i < content.len) {
                 if (content[i] == '\\' and i + 1 < content.len) {
                     i += 2;
                     continue;
                 }
-                if (content[i] == quote) {
+                if (content[i] == '"') {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        if (c == '\'') {
+            // Skip single-quoted string (only '' is an escape, no backslash escapes).
+            i += 1;
+            while (i < content.len) {
+                if (content[i] == '\'' and i + 1 < content.len and content[i + 1] == '\'') {
+                    i += 2;
+                    continue;
+                }
+                if (content[i] == '\'') {
                     i += 1;
                     break;
                 }

@@ -214,7 +214,9 @@ pub fn execute(ctx: context.Context, _: ?[]const u8) anyerror!void {
 }
 
 fn generateGitignore(ctx: context.Context, input: []const u8) !void {
-    const writer = ctx.stdoutWriter();
+    var list = std.ArrayList(u8){};
+    defer list.deinit(ctx.allocator);
+    const writer = list.writer(ctx.allocator);
     var first = true;
 
     var iter = std.mem.splitScalar(u8, input, ',');
@@ -242,6 +244,8 @@ fn generateGitignore(ctx: context.Context, input: []const u8) !void {
         try err_writer.print("gitignore: no valid template names provided\n", .{});
         return error.InvalidArgument;
     }
+
+    try io.writeOutput(ctx, list.items);
 }
 
 /// Command definition for registration.

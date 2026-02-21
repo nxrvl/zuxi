@@ -61,20 +61,32 @@ pub fn execute(ctx: context.Context, _: ?[]const u8) anyerror!void {
     }
 
     // Output results.
-    const no_color = !color.shouldColor(ctx);
-    const stdout = ctx.stdoutWriter();
-    for (results.items) |value| {
-        const json_str = std.json.Stringify.valueAlloc(ctx.allocator, value, .{
-            .whitespace = .indent_4,
-        }) catch return error.OutOfMemory;
-        defer ctx.allocator.free(json_str);
+    if (color.shouldColor(ctx)) {
+        // Colored output goes directly to stdout (only when TTY, no --output).
+        const stdout = ctx.stdoutWriter();
+        for (results.items) |value| {
+            const json_str = std.json.Stringify.valueAlloc(ctx.allocator, value, .{
+                .whitespace = .indent_4,
+            }) catch return error.OutOfMemory;
+            defer ctx.allocator.free(json_str);
 
-        if (!no_color) {
             try color.writeColoredJson(stdout, json_str, false);
-        } else {
-            try stdout.writeAll(json_str);
+            try stdout.writeByte('\n');
         }
-        try stdout.writeByte('\n');
+    } else {
+        // Non-colored output respects --output flag.
+        var list = std.ArrayList(u8){};
+        defer list.deinit(ctx.allocator);
+        for (results.items) |value| {
+            const json_str = std.json.Stringify.valueAlloc(ctx.allocator, value, .{
+                .whitespace = .indent_4,
+            }) catch return error.OutOfMemory;
+            defer ctx.allocator.free(json_str);
+
+            try list.appendSlice(ctx.allocator, json_str);
+            try list.append(ctx.allocator, '\n');
+        }
+        try io.writeOutput(ctx, list.items);
     }
 }
 
