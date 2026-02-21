@@ -24,45 +24,10 @@ pub fn categoryName(cat: Category) []const u8 {
     };
 }
 
-/// The error set returned by command execute functions.
-pub const CommandError = errors.ZuxiError || error{
-    OutOfMemory,
-    /// Catch-all for std errors that may occur during command execution.
-    Unexpected,
-    BrokenPipe,
-    ConnectionResetByPeer,
-    DiskQuota,
-    FileTooBig,
-    InputOutput,
-    NoSpaceLeft,
-    DeviceBusy,
-    AccessDenied,
-    InvalidArgument,
-    OperationAborted,
-    LockViolation,
-    NotOpenForWriting,
-    ConnectionTimedOut,
-    IsDir,
-    FileNotFound,
-    PathAlreadyExists,
-    NoDevice,
-    ProcessNotFound,
-    WouldBlock,
-    SystemResources,
-    NameTooLong,
-    BadPathName,
-    NetworkUnreachable,
-    SymLinkLoop,
-    NotDir,
-    ReadOnlyFileSystem,
-    SharingViolation,
-    FilesOpenedByProcess,
-    AntivirusInterference,
-    InvalidUtf8,
-    Overflow,
-    EndOfStream,
-    StreamTooLong,
-};
+/// The error type returned by command execute functions.
+/// Uses anyerror to accommodate all possible I/O and system errors
+/// that may arise during command execution.
+pub const CommandError = anyerror;
 
 /// A registered command definition.
 pub const Command = struct {
@@ -75,7 +40,7 @@ pub const Command = struct {
     /// List of subcommands (empty slice if none).
     subcommands: []const []const u8,
     /// Execute the command with the given context and optional subcommand.
-    execute: *const fn (ctx: context.Context, subcommand: ?[]const u8) CommandError!void,
+    execute: *const fn (ctx: context.Context, subcommand: ?[]const u8) anyerror!void,
 };
 
 /// Maximum number of commands the registry can hold.
@@ -160,7 +125,7 @@ pub fn lookupCommand(name: []const u8) ?Command {
 
 // --- Tests ---
 
-fn dummyExecute(_: context.Context, _: ?[]const u8) CommandError!void {}
+fn dummyExecute(_: context.Context, _: ?[]const u8) anyerror!void {}
 
 test "Registry register and lookup" {
     var reg = Registry{};

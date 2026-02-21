@@ -33,13 +33,14 @@ pub const CommandInvocation = struct {
 
 /// Parse CLI arguments into a ParseResult.
 /// The `raw_args` slice should NOT include the program name (argv[0]).
-pub fn parseArgs(raw_args: []const []const u8) errors.ZuxiError!ParseResult {
+/// `positional_out` is a caller-provided buffer for storing positional arguments,
+/// ensuring the returned slices remain valid after this function returns.
+pub fn parseArgs(raw_args: []const []const u8, positional_out: [][]const u8) errors.ZuxiError!ParseResult {
     if (raw_args.len == 0) {
         return .tui;
     }
 
     var flags = context.Flags{};
-    var positional_buf: [128][]const u8 = undefined;
     var positional_count: usize = 0;
     var i: usize = 0;
     var command_name: ?[]const u8 = null;
@@ -100,10 +101,10 @@ pub fn parseArgs(raw_args: []const []const u8) errors.ZuxiError!ParseResult {
         } else if (subcommand == null and !isPositionalArg(arg)) {
             subcommand = arg;
         } else {
-            if (positional_count >= positional_buf.len) {
+            if (positional_count >= positional_out.len) {
                 return error.BufferTooSmall;
             }
-            positional_buf[positional_count] = arg;
+            positional_out[positional_count] = arg;
             positional_count += 1;
         }
     }
@@ -113,7 +114,7 @@ pub fn parseArgs(raw_args: []const []const u8) errors.ZuxiError!ParseResult {
             .command_name = cmd,
             .subcommand = subcommand,
             .flags = flags,
-            .positional_args = positional_buf[0..positional_count],
+            .positional_args = positional_out[0..positional_count],
         } };
     }
 
@@ -232,37 +233,43 @@ pub fn printCommandHelp(writer: anytype, reg: *const registry.Registry, cmd_name
 
 test "parseArgs with no args returns tui" {
     const args = [_][]const u8{};
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     try std.testing.expect(result == .tui);
 }
 
 test "parseArgs --version" {
     const args = [_][]const u8{"--version"};
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     try std.testing.expect(result == .version);
 }
 
 test "parseArgs -v" {
     const args = [_][]const u8{"-v"};
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     try std.testing.expect(result == .version);
 }
 
 test "parseArgs --help" {
     const args = [_][]const u8{"--help"};
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     try std.testing.expect(result == .help);
 }
 
 test "parseArgs -h" {
     const args = [_][]const u8{"-h"};
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     try std.testing.expect(result == .help);
 }
 
 test "parseArgs command only" {
     const args = [_][]const u8{"jsonfmt"};
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expectEqualStrings("jsonfmt", inv.command_name);
@@ -275,7 +282,8 @@ test "parseArgs command only" {
 
 test "parseArgs command with subcommand" {
     const args = [_][]const u8{ "base64", "encode" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expectEqualStrings("base64", inv.command_name);
@@ -287,7 +295,8 @@ test "parseArgs command with subcommand" {
 
 test "parseArgs command with subcommand and positional arg" {
     const args = [_][]const u8{ "base64", "encode", "hello" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expectEqualStrings("base64", inv.command_name);
@@ -301,7 +310,8 @@ test "parseArgs command with subcommand and positional arg" {
 
 test "parseArgs global flags --no-color --quiet" {
     const args = [_][]const u8{ "hash", "sha256", "--no-color", "--quiet" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expect(inv.flags.no_color);
@@ -313,7 +323,8 @@ test "parseArgs global flags --no-color --quiet" {
 
 test "parseArgs --output flag" {
     const args = [_][]const u8{ "jsonfmt", "--output", "out.json" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expectEqualStrings("out.json", inv.flags.output_file.?);
@@ -324,7 +335,8 @@ test "parseArgs --output flag" {
 
 test "parseArgs --format json" {
     const args = [_][]const u8{ "jsonfmt", "--format", "json" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expectEqual(context.OutputFormat.json, inv.flags.format);
@@ -335,7 +347,8 @@ test "parseArgs --format json" {
 
 test "parseArgs --format text" {
     const args = [_][]const u8{ "jsonfmt", "--format", "text" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expectEqual(context.OutputFormat.text, inv.flags.format);
@@ -346,25 +359,29 @@ test "parseArgs --format text" {
 
 test "parseArgs --format invalid value" {
     const args = [_][]const u8{ "jsonfmt", "--format", "xml" };
-    const result = parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = parseArgs(&args, &pbuf);
     try std.testing.expectError(error.InvalidArgument, result);
 }
 
 test "parseArgs --output missing value" {
     const args = [_][]const u8{ "jsonfmt", "--output" };
-    const result = parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = parseArgs(&args, &pbuf);
     try std.testing.expectError(error.MissingArgument, result);
 }
 
 test "parseArgs --format missing value" {
     const args = [_][]const u8{ "jsonfmt", "--format" };
-    const result = parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = parseArgs(&args, &pbuf);
     try std.testing.expectError(error.MissingArgument, result);
 }
 
 test "parseArgs command --help shows command help" {
     const args = [_][]const u8{ "jsonfmt", "--help" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command_help => |name| {
             try std.testing.expectEqualStrings("jsonfmt", name);
@@ -375,7 +392,8 @@ test "parseArgs command --help shows command help" {
 
 test "parseArgs flags before command" {
     const args = [_][]const u8{ "--no-color", "hash", "sha256", "test" };
-    const result = try parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
     switch (result) {
         .command => |inv| {
             try std.testing.expect(inv.flags.no_color);
@@ -389,7 +407,8 @@ test "parseArgs flags before command" {
 
 test "parseArgs unknown flag" {
     const args = [_][]const u8{ "--unknown" };
-    const result = parseArgs(&args);
+    var pbuf: [16][]const u8 = undefined;
+    const result = parseArgs(&args, &pbuf);
     try std.testing.expectError(error.InvalidArgument, result);
 }
 
@@ -414,7 +433,7 @@ test "printHelp with empty registry" {
 test "printHelp with registered commands" {
     var reg = registry.Registry{};
     const dummy_fn = struct {
-        fn exec(_: context.Context, _: ?[]const u8) registry.CommandError!void {}
+        fn exec(_: context.Context, _: ?[]const u8) anyerror!void {}
     }.exec;
     try reg.register(.{
         .name = "jsonfmt",
@@ -446,7 +465,7 @@ test "printCommandHelp for known command" {
     var reg = registry.Registry{};
     const subs = [_][]const u8{ "encode", "decode" };
     const dummy_fn = struct {
-        fn exec(_: context.Context, _: ?[]const u8) registry.CommandError!void {}
+        fn exec(_: context.Context, _: ?[]const u8) anyerror!void {}
     }.exec;
     try reg.register(.{
         .name = "base64",

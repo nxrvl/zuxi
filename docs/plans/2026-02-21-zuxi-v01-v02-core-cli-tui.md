@@ -64,12 +64,12 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 **Files:**
 - Create: `src/commands/json/jsonfmt.zig`
 
-- [ ] Implement prettify (indent JSON), minify (compact JSON), and validate modes
-- [ ] Support subcommands: `zuxi jsonfmt` (default prettify), `zuxi jsonfmt minify`, `zuxi jsonfmt validate`
-- [ ] Read input from stdin or argument, write to stdout or --output file
-- [ ] Register in the command registry
-- [ ] Write tests: valid JSON prettify/minify, invalid JSON error, stdin pipe input
-- [ ] Run test suite - must pass before task 5
+- [x] Implement prettify (indent JSON), minify (compact JSON), and validate modes
+- [x] Support subcommands: `zuxi jsonfmt` (default prettify), `zuxi jsonfmt minify`, `zuxi jsonfmt validate`
+- [x] Read input from stdin or argument, write to stdout or --output file
+- [x] Register in the command registry
+- [x] Write tests: valid JSON prettify/minify, invalid JSON error, stdin pipe input
+- [x] Run test suite - must pass before task 5
 
 ### Task 5: Encoding commands - base64, strcase
 
