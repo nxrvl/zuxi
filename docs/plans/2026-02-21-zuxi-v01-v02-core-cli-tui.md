@@ -144,12 +144,12 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Modify: `src/core/tui.zig`
 - Modify: `src/main.zig`
 
-- [ ] Build the main TUI loop: render categories -> select command -> show input area -> live preview output -> copy result with F2
-- [ ] Integrate command registry: execute selected command on input text, display result in preview panel
-- [ ] Implement keyboard navigation: arrow keys for category/command selection, Tab to switch panels, Ctrl+C to exit
-- [ ] Wire up TUI mode in main.zig when invoked without arguments
-- [ ] Write tests for TUI state machine transitions
-- [ ] Run test suite - must pass before task 11
+- [x] Build the main TUI loop: render categories -> select command -> show input area -> live preview output -> copy result with F2
+- [x] Integrate command registry: execute selected command on input text, display result in preview panel
+- [x] Implement keyboard navigation: arrow keys for category/command selection, Tab to switch panels, Ctrl+C to exit
+- [x] Wire up TUI mode in main.zig when invoked without arguments
+- [x] Write tests for TUI state machine transitions
+- [x] Run test suite - must pass before task 11
 
 ### Task 11: Final verification and documentation
 

@@ -4,6 +4,7 @@ const cli = @import("core/cli.zig");
 const registry = @import("core/registry.zig");
 const context = @import("core/context.zig");
 const errors = @import("core/errors.zig");
+const tui = @import("core/tui.zig");
 const jsonfmt = @import("commands/json/jsonfmt.zig");
 const base64_cmd = @import("commands/encoding/base64.zig");
 const strcase_cmd = @import("commands/encoding/strcase.zig");
@@ -77,8 +78,13 @@ pub fn main() !void {
             try cli.printCommandHelp(stdout, reg, cmd_name);
         },
         .tui => {
-            try cli.printVersion(stdout);
-            try stdout.print("TUI mode coming soon. Use 'zuxi --help' for CLI usage.\n", .{});
+            const size = tui.getTerminalSize();
+            var app = tui.TuiApp.init(allocator, reg, size.cols, size.rows);
+            defer app.deinit();
+            app.run() catch {
+                try stderr.print("zuxi: TUI error, falling back to help\n", .{});
+                try cli.printHelp(stdout, reg);
+            };
         },
         .command => |invocation| {
             cli.dispatch(reg, invocation, allocator) catch |err| {

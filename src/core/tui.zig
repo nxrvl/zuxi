@@ -540,3 +540,609 @@ test "Screen.clearToEol writes escape sequence" {
     try Screen.clearToEol(fbs.writer());
     try std.testing.expectEqualStrings("\x1b[K", fbs.getWritten());
 }
+
+// --- TUI Application ---
+
+const registry = @import("registry.zig");
+const context = @import("context.zig");
+const io_mod = @import("io.zig");
+const list_mod = @import("../ui/components/list.zig");
+const textinput_mod = @import("../ui/components/textinput.zig");
+const preview_mod = @import("../ui/components/preview.zig");
+const split_mod = @import("../ui/layout/split.zig");
+const theme_mod = @import("../ui/themes/theme.zig");
+
+/// Which panel is currently focused.
+pub const ActivePanel = enum {
+    command_list,
+    input,
+    preview,
+
+    /// Cycle to the next panel.
+    pub fn next(self: ActivePanel) ActivePanel {
+        return switch (self) {
+            .command_list => .input,
+            .input => .preview,
+            .preview => .command_list,
+        };
+    }
+};
+
+/// TUI application state machine.
+/// Manages the interactive terminal interface with command list, input, and preview panels.
+pub const TuiApp = struct {
+    const MAX_ENTRIES = 64;
+    const OUTPUT_BUF_SIZE = 16384;
+    const MAX_OUTPUT_LINES = 512;
+    const STATUS_BUF_SIZE = 256;
+
+    // Core state
+    active_panel: ActivePanel,
+    running: bool,
+    theme: theme_mod.Theme,
+    allocator: std.mem.Allocator,
+    reg: *const registry.Registry,
+
+    // Components
+    command_list: list_mod.List,
+    text_input: textinput_mod.TextInput,
+    preview_comp: preview_mod.Preview,
+    layout: split_mod.SplitLayout,
+
+    // Command entry mapping (index-parallel with list items)
+    list_items: [MAX_ENTRIES]list_mod.List.ListItem,
+    cmd_names: [MAX_ENTRIES][]const u8,
+    cmd_subs: [MAX_ENTRIES]?[]const u8,
+    entry_count: usize,
+
+    // Output capture
+    output_buf: [OUTPUT_BUF_SIZE]u8,
+    output_len: usize,
+    output_lines: [MAX_OUTPUT_LINES][]const u8,
+    output_line_count: usize,
+
+    // Status bar
+    status_buf: [STATUS_BUF_SIZE]u8,
+    status_len: usize,
+
+    /// Initialize the TUI app from a command registry.
+    pub fn init(allocator: std.mem.Allocator, reg: *const registry.Registry, term_cols: u16, term_rows: u16) TuiApp {
+        var app: TuiApp = undefined;
+        app.allocator = allocator;
+        app.reg = reg;
+        app.running = true;
+        app.active_panel = .command_list;
+        app.theme = theme_mod.dark_theme;
+        app.output_len = 0;
+        app.output_line_count = 0;
+
+        // Build command entries from registry.
+        app.entry_count = 0;
+        const cmds = reg.list();
+        for (cmds) |slot| {
+            if (slot) |cmd| {
+                if (cmd.subcommands.len == 0) {
+                    if (app.entry_count < MAX_ENTRIES) {
+                        app.list_items[app.entry_count] = .{
+                            .label = cmd.name,
+                            .description = cmd.description,
+                            .category = registry.categoryName(cmd.category),
+                        };
+                        app.cmd_names[app.entry_count] = cmd.name;
+                        app.cmd_subs[app.entry_count] = null;
+                        app.entry_count += 1;
+                    }
+                } else {
+                    for (cmd.subcommands) |sub| {
+                        if (app.entry_count < MAX_ENTRIES) {
+                            // Use subcommand name as label with command name as category info.
+                            app.list_items[app.entry_count] = .{
+                                .label = sub,
+                                .description = cmd.description,
+                                .category = cmd.name,
+                            };
+                            app.cmd_names[app.entry_count] = cmd.name;
+                            app.cmd_subs[app.entry_count] = sub;
+                            app.entry_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        app.command_list = list_mod.List.init(
+            app.list_items[0..app.entry_count],
+            " Commands ",
+        );
+
+        app.text_input = textinput_mod.TextInput.init(allocator, " Input ");
+        app.preview_comp = preview_mod.Preview.init(" Output ");
+
+        app.layout = split_mod.SplitLayout.init(term_cols, term_rows);
+        app.applyLayout();
+        app.setStatus("Tab:panel  F2:copy  F3:theme  Ctrl+C:quit");
+
+        return app;
+    }
+
+    /// Release resources.
+    pub fn deinit(self: *TuiApp) void {
+        self.text_input.deinit();
+    }
+
+    /// Apply layout dimensions to all components.
+    fn applyLayout(self: *TuiApp) void {
+        const left = self.layout.leftRegion();
+        const rt = self.layout.rightTopRegion();
+        const rb = self.layout.rightBottomRegion();
+
+        self.command_list.width = left.width;
+        self.command_list.visible_rows = if (left.height > 2) left.height - 2 else 1;
+
+        self.text_input.width = rt.width;
+        self.text_input.visible_rows = if (rt.height > 2) rt.height - 2 else 1;
+
+        self.preview_comp.width = rb.width;
+        self.preview_comp.visible_rows = if (rb.height > 2) rb.height - 2 else 1;
+    }
+
+    /// Set status bar text.
+    fn setStatus(self: *TuiApp, text: []const u8) void {
+        const len = @min(text.len, STATUS_BUF_SIZE);
+        @memcpy(self.status_buf[0..len], text[0..len]);
+        self.status_len = len;
+    }
+
+    /// Process a key event. Updates state accordingly.
+    pub fn handleKey(self: *TuiApp, key: Key) !void {
+        // Global keys (handled regardless of active panel).
+        switch (key) {
+            .ctrl_c, .ctrl_q => {
+                self.running = false;
+                return;
+            },
+            .f3 => {
+                self.theme = self.theme.toggle();
+                return;
+            },
+            .f2 => {
+                self.copyOutput();
+                return;
+            },
+            .tab => {
+                self.active_panel = self.active_panel.next();
+                if (self.active_panel == .preview) {
+                    self.executeSelectedCommand();
+                }
+                return;
+            },
+            else => {},
+        }
+
+        // Panel-specific keys.
+        switch (self.active_panel) {
+            .command_list => {
+                if (key == .enter) {
+                    self.active_panel = .input;
+                    self.executeSelectedCommand();
+                    return;
+                }
+                _ = self.command_list.handleKey(key);
+            },
+            .input => {
+                _ = self.text_input.handleKey(key) catch {};
+                self.executeSelectedCommand();
+            },
+            .preview => {
+                _ = self.preview_comp.handleKey(key);
+            },
+        }
+    }
+
+    /// Execute the currently selected command with the current input text.
+    pub fn executeSelectedCommand(self: *TuiApp) void {
+        const idx = self.command_list.selected;
+        if (idx >= self.entry_count) return;
+
+        const cmd_name = self.cmd_names[idx];
+        const sub = self.cmd_subs[idx];
+        const cmd = self.reg.lookup(cmd_name) orelse return;
+
+        // Get input text.
+        const input_text = self.text_input.getContent() catch return;
+        defer self.allocator.free(input_text);
+
+        if (input_text.len == 0) {
+            self.output_len = 0;
+            self.output_line_count = 0;
+            self.preview_comp.setLines(self.output_lines[0..0]);
+            return;
+        }
+
+        // Create pipes for stdin/stdout redirection.
+        const stdin_pipe = std.posix.pipe() catch return;
+        const stdout_pipe = std.posix.pipe() catch {
+            std.posix.close(stdin_pipe[0]);
+            std.posix.close(stdin_pipe[1]);
+            return;
+        };
+
+        // Write input to stdin pipe and close write end.
+        const stdin_write = std.fs.File{ .handle = stdin_pipe[1] };
+        stdin_write.writeAll(input_text) catch {};
+        stdin_write.close();
+
+        // Build context with pipe handles.
+        const arg_list = [_][]const u8{input_text};
+        const ctx = context.Context{
+            .allocator = self.allocator,
+            .stdin = std.fs.File{ .handle = stdin_pipe[0] },
+            .stdout = std.fs.File{ .handle = stdout_pipe[1] },
+            .stderr = std.fs.File{ .handle = stdout_pipe[1] },
+            .flags = .{},
+            .args = &arg_list,
+        };
+
+        // Execute the command.
+        cmd.execute(ctx, sub) catch {
+            // On error, show error message in preview.
+            std.posix.close(stdout_pipe[1]);
+            std.posix.close(stdin_pipe[0]);
+            const msg = "Error executing command";
+            @memcpy(self.output_buf[0..msg.len], msg);
+            self.output_len = msg.len;
+            self.output_lines[0] = self.output_buf[0..msg.len];
+            self.output_line_count = 1;
+            self.preview_comp.setLines(self.output_lines[0..1]);
+            // Drain and close read end.
+            const stdout_read = std.fs.File{ .handle = stdout_pipe[0] };
+            stdout_read.close();
+            return;
+        };
+
+        // Close pipe ends we're done with.
+        std.posix.close(stdout_pipe[1]);
+        std.posix.close(stdin_pipe[0]);
+
+        // Read captured output.
+        const stdout_read = std.fs.File{ .handle = stdout_pipe[0] };
+        self.output_len = stdout_read.readAll(&self.output_buf) catch 0;
+        stdout_read.close();
+
+        // Split into lines for the preview component.
+        self.splitOutputLines();
+        self.preview_comp.setLines(self.output_lines[0..self.output_line_count]);
+    }
+
+    /// Split output_buf into lines stored in output_lines.
+    fn splitOutputLines(self: *TuiApp) void {
+        self.output_line_count = 0;
+        if (self.output_len == 0) return;
+
+        var start: usize = 0;
+        for (self.output_buf[0..self.output_len], 0..) |c, i| {
+            if (c == '\n') {
+                if (self.output_line_count < MAX_OUTPUT_LINES) {
+                    self.output_lines[self.output_line_count] = self.output_buf[start..i];
+                    self.output_line_count += 1;
+                }
+                start = i + 1;
+            }
+        }
+        if (start < self.output_len and self.output_line_count < MAX_OUTPUT_LINES) {
+            self.output_lines[self.output_line_count] = self.output_buf[start..self.output_len];
+            self.output_line_count += 1;
+        }
+    }
+
+    /// Copy output to system clipboard (macOS: pbcopy).
+    fn copyOutput(self: *TuiApp) void {
+        if (self.output_len == 0) {
+            self.setStatus("Nothing to copy");
+            return;
+        }
+        // Try pbcopy on macOS, xclip on Linux.
+        const argv = if (comptime builtin.os.tag == .macos)
+            &[_][]const u8{"pbcopy"}
+        else
+            &[_][]const u8{ "xclip", "-selection", "clipboard" };
+
+        var child = std.process.Child.init(argv, self.allocator);
+        child.stdin_behavior = .Pipe;
+        child.stdout_behavior = .Close;
+        child.stderr_behavior = .Close;
+        child.spawn() catch {
+            self.setStatus("Copy failed - clipboard tool not found");
+            return;
+        };
+        if (child.stdin) |*stdin_stream| {
+            stdin_stream.writeAll(self.output_buf[0..self.output_len]) catch {};
+            stdin_stream.close();
+            child.stdin = null;
+        }
+        _ = child.wait() catch {};
+        self.setStatus("Copied to clipboard!");
+    }
+
+    /// Render the full TUI to a writer.
+    pub fn render(self: *TuiApp, writer: anytype) !void {
+        try Screen.clear(writer);
+        const colors = self.theme.colors;
+
+        // Status bar at top.
+        try self.layout.renderStatusBar(writer, colors, self.status_buf[0..self.status_len]);
+
+        // Left panel: command list.
+        const left = self.layout.leftRegion();
+        try self.command_list.render(writer, left.row, left.col, colors, self.active_panel == .command_list);
+
+        // Right top: text input.
+        const rt = self.layout.rightTopRegion();
+        try self.text_input.render(writer, rt.row, rt.col, colors, self.active_panel == .input);
+
+        // Right bottom: preview.
+        const rb = self.layout.rightBottomRegion();
+        try self.preview_comp.render(writer, rb.row, rb.col, colors, self.active_panel == .preview);
+
+        // Show cursor only when input panel is active.
+        if (self.active_panel == .input) {
+            const cursor_row = rt.row + 1 + @as(u16, @intCast(self.text_input.cursor_row -| self.text_input.scroll_offset));
+            const cursor_col = rt.col + 1 + @as(u16, @intCast(@min(self.text_input.cursor_col, if (self.text_input.width > 2) self.text_input.width - 2 else 0)));
+            try Screen.moveTo(writer, cursor_row, cursor_col);
+            try Screen.showCursor(writer);
+        } else {
+            try Screen.hideCursor(writer);
+        }
+    }
+
+    /// Run the main TUI event loop (blocking).
+    pub fn run(self: *TuiApp) !void {
+        const stdout = std.fs.File.stdout();
+        const stdin = std.fs.File.stdin();
+        const writer = stdout.deprecatedWriter();
+
+        const raw = try RawMode.enable();
+        defer raw.disable();
+
+        try Screen.enterAltScreen(writer);
+        defer Screen.leaveAltScreen(writer) catch {};
+        try Screen.hideCursor(writer);
+        defer Screen.showCursor(writer) catch {};
+
+        try self.render(writer);
+
+        while (self.running) {
+            if (try readKey(stdin)) |key| {
+                try self.handleKey(key);
+                try self.render(writer);
+            }
+        }
+    }
+};
+
+// --- TuiApp Tests ---
+
+fn dummyExec(_: context.Context, _: ?[]const u8) anyerror!void {}
+
+test "ActivePanel.next cycles correctly" {
+    try std.testing.expectEqual(ActivePanel.input, ActivePanel.command_list.next());
+    try std.testing.expectEqual(ActivePanel.preview, ActivePanel.input.next());
+    try std.testing.expectEqual(ActivePanel.command_list, ActivePanel.preview.next());
+}
+
+test "TuiApp init with empty registry" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try std.testing.expectEqual(ActivePanel.command_list, app.active_panel);
+    try std.testing.expect(app.running);
+    try std.testing.expectEqual(@as(usize, 0), app.entry_count);
+    try std.testing.expectEqual(theme_mod.ThemeVariant.dark, app.theme.variant);
+}
+
+test "TuiApp init builds entries from registry" {
+    var reg = registry.Registry{};
+    const subs = [_][]const u8{ "encode", "decode" };
+    try reg.register(.{
+        .name = "jsonfmt",
+        .description = "Format JSON",
+        .category = .json,
+        .subcommands = &.{},
+        .execute = dummyExec,
+    });
+    try reg.register(.{
+        .name = "base64",
+        .description = "Base64 encode/decode",
+        .category = .encoding,
+        .subcommands = &subs,
+        .execute = dummyExec,
+    });
+
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    // jsonfmt (no subs) = 1 entry, base64 (2 subs) = 2 entries => total 3
+    try std.testing.expectEqual(@as(usize, 3), app.entry_count);
+    try std.testing.expectEqualStrings("jsonfmt", app.cmd_names[0]);
+    try std.testing.expect(app.cmd_subs[0] == null);
+    try std.testing.expectEqualStrings("base64", app.cmd_names[1]);
+    try std.testing.expectEqualStrings("encode", app.cmd_subs[1].?);
+    try std.testing.expectEqualStrings("base64", app.cmd_names[2]);
+    try std.testing.expectEqualStrings("decode", app.cmd_subs[2].?);
+}
+
+test "TuiApp handleKey Ctrl+C stops running" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try std.testing.expect(app.running);
+    try app.handleKey(.ctrl_c);
+    try std.testing.expect(!app.running);
+}
+
+test "TuiApp handleKey Ctrl+Q stops running" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try app.handleKey(.ctrl_q);
+    try std.testing.expect(!app.running);
+}
+
+test "TuiApp handleKey F3 toggles theme" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try std.testing.expectEqual(theme_mod.ThemeVariant.dark, app.theme.variant);
+    try app.handleKey(.f3);
+    try std.testing.expectEqual(theme_mod.ThemeVariant.light, app.theme.variant);
+    try app.handleKey(.f3);
+    try std.testing.expectEqual(theme_mod.ThemeVariant.dark, app.theme.variant);
+}
+
+test "TuiApp handleKey Tab cycles panels" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try std.testing.expectEqual(ActivePanel.command_list, app.active_panel);
+    try app.handleKey(.tab);
+    try std.testing.expectEqual(ActivePanel.input, app.active_panel);
+    try app.handleKey(.tab);
+    try std.testing.expectEqual(ActivePanel.preview, app.active_panel);
+    try app.handleKey(.tab);
+    try std.testing.expectEqual(ActivePanel.command_list, app.active_panel);
+}
+
+test "TuiApp handleKey Enter on command list switches to input" {
+    var reg = registry.Registry{};
+    try reg.register(.{
+        .name = "test",
+        .description = "Test",
+        .category = .dev,
+        .subcommands = &.{},
+        .execute = dummyExec,
+    });
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try std.testing.expectEqual(ActivePanel.command_list, app.active_panel);
+    try app.handleKey(.enter);
+    try std.testing.expectEqual(ActivePanel.input, app.active_panel);
+}
+
+test "TuiApp handleKey arrow down in command list" {
+    var reg = registry.Registry{};
+    try reg.register(.{
+        .name = "cmd_a",
+        .description = "A",
+        .category = .dev,
+        .subcommands = &.{},
+        .execute = dummyExec,
+    });
+    try reg.register(.{
+        .name = "cmd_b",
+        .description = "B",
+        .category = .dev,
+        .subcommands = &.{},
+        .execute = dummyExec,
+    });
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    try std.testing.expectEqual(@as(usize, 0), app.command_list.selected);
+    try app.handleKey(.arrow_down);
+    try std.testing.expectEqual(@as(usize, 1), app.command_list.selected);
+}
+
+test "TuiApp splitOutputLines splits correctly" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    const test_output = "line1\nline2\nline3";
+    @memcpy(app.output_buf[0..test_output.len], test_output);
+    app.output_len = test_output.len;
+    app.splitOutputLines();
+
+    try std.testing.expectEqual(@as(usize, 3), app.output_line_count);
+    try std.testing.expectEqualStrings("line1", app.output_lines[0]);
+    try std.testing.expectEqualStrings("line2", app.output_lines[1]);
+    try std.testing.expectEqualStrings("line3", app.output_lines[2]);
+}
+
+test "TuiApp splitOutputLines handles trailing newline" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    const test_output = "hello\n";
+    @memcpy(app.output_buf[0..test_output.len], test_output);
+    app.output_len = test_output.len;
+    app.splitOutputLines();
+
+    try std.testing.expectEqual(@as(usize, 1), app.output_line_count);
+    try std.testing.expectEqualStrings("hello", app.output_lines[0]);
+}
+
+test "TuiApp splitOutputLines empty output" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    app.output_len = 0;
+    app.splitOutputLines();
+    try std.testing.expectEqual(@as(usize, 0), app.output_line_count);
+}
+
+test "TuiApp render does not crash" {
+    var reg = registry.Registry{};
+    try reg.register(.{
+        .name = "test",
+        .description = "Test",
+        .category = .dev,
+        .subcommands = &.{},
+        .execute = dummyExec,
+    });
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    var buf: [65536]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try app.render(fbs.writer());
+    try std.testing.expect(fbs.getWritten().len > 0);
+}
+
+test "TuiApp input panel accepts characters" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    app.active_panel = .input;
+    try app.handleKey(.{ .char = 'H' });
+    try app.handleKey(.{ .char = 'i' });
+    const content = try app.text_input.getContent();
+    defer std.testing.allocator.free(content);
+    try std.testing.expectEqualStrings("Hi", content);
+}
+
+test "TuiApp preview panel scrolls" {
+    var reg = registry.Registry{};
+    var app = TuiApp.init(std.testing.allocator, &reg, 80, 24);
+    defer app.deinit();
+
+    // Set some output lines.
+    var lines_buf: [20][]const u8 = undefined;
+    for (&lines_buf) |*line| {
+        line.* = "text";
+    }
+    app.preview_comp.setLines(&lines_buf);
+    app.preview_comp.visible_rows = 5;
+
+    app.active_panel = .preview;
+    try app.handleKey(.arrow_down);
+    try std.testing.expectEqual(@as(usize, 1), app.preview_comp.scroll_offset);
+}
