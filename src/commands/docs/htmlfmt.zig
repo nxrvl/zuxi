@@ -85,7 +85,7 @@ pub fn formatHtml(allocator: std.mem.Allocator, src: []const u8) ![]u8 {
             // DOCTYPE
             if (i + 1 < src.len and src[i + 1] == '!') {
                 try writeIndent(allocator, &out, depth);
-                const end = findCharFrom(src, i, '>');
+                const end = findTagEnd(src, i);
                 try out.appendSlice(allocator, src[i .. end + 1]);
                 try out.append(allocator, '\n');
                 i = end + 1;
@@ -94,7 +94,7 @@ pub fn formatHtml(allocator: std.mem.Allocator, src: []const u8) ![]u8 {
 
             // Closing tag </...>
             if (i + 1 < src.len and src[i + 1] == '/') {
-                const tag_end = findCharFrom(src, i, '>');
+                const tag_end = findTagEnd(src, i);
                 const tag_name = extractTagName(src[i + 2 .. tag_end]);
                 _ = tag_name;
                 if (depth > 0) depth -= 1;
@@ -106,7 +106,7 @@ pub fn formatHtml(allocator: std.mem.Allocator, src: []const u8) ![]u8 {
             }
 
             // Opening tag or self-closing tag
-            const tag_end = findCharFrom(src, i, '>');
+            const tag_end = findTagEnd(src, i);
             const tag_content = src[i + 1 .. tag_end];
             const tag_name = extractTagName(tag_content);
             const self_closing = tag_end > 0 and src[tag_end - 1] == '/';
@@ -156,7 +156,7 @@ pub fn formatHtml(allocator: std.mem.Allocator, src: []const u8) ![]u8 {
 
             if (trimmed.len > 0 and next_tag < src.len and src[next_tag] == '<' and next_tag + 1 < src.len and src[next_tag + 1] == '/') {
                 // Inline content: <tag>text</tag> on one line
-                const close_end = findCharFrom(src, next_tag, '>');
+                const close_end = findTagEnd(src, next_tag);
                 try out.appendSlice(allocator, trimmed);
                 try out.appendSlice(allocator, src[next_tag .. close_end + 1]);
                 try out.append(allocator, '\n');
@@ -215,6 +215,24 @@ fn findCharFrom(src: []const u8, start: usize, char: u8) usize {
     return src.len;
 }
 
+/// Find the closing '>' of an HTML tag, skipping over '>' inside quoted attribute values.
+fn findTagEnd(src: []const u8, start: usize) usize {
+    var j = start;
+    var in_quote: u8 = 0;
+    while (j < src.len) : (j += 1) {
+        if (in_quote != 0) {
+            if (src[j] == in_quote) in_quote = 0;
+            continue;
+        }
+        if (src[j] == '"' or src[j] == '\'') {
+            in_quote = src[j];
+            continue;
+        }
+        if (src[j] == '>') return j;
+    }
+    return src.len;
+}
+
 fn findCommentEnd(src: []const u8, start: usize) usize {
     var j = start;
     while (j + 2 < src.len) : (j += 1) {
@@ -254,7 +272,7 @@ fn findClosingTag(src: []const u8, start: usize, tag_name: []const u8) TagRange 
             const name_start = j + 2;
             const name_end = name_start + tag_name.len;
             if (name_end <= src.len and std.ascii.eqlIgnoreCase(src[name_start..name_end], tag_name)) {
-                const close = findCharFrom(src, name_end, '>');
+                const close = findTagEnd(src, name_end);
                 return .{ .start = j, .end = close + 1 };
             }
         }

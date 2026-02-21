@@ -181,12 +181,26 @@ fn insertNestedKey(
 
     if (parts.items.len == 0) return;
 
-    if (parts.items.len == 1) {
+    try insertNestedKeyParts(allocator, root, parts.items, value, is_array);
+}
+
+/// Insert a value into a nested table structure given pre-split key parts.
+/// parts[0..len-1] are intermediate table keys, parts[len-1] is the leaf key.
+fn insertNestedKeyParts(
+    allocator: std.mem.Allocator,
+    root: *std.ArrayList(TableEntry),
+    parts: []const []const u8,
+    value: Value,
+    is_array: bool,
+) !void {
+    if (parts.len == 0) return;
+
+    if (parts.len == 1) {
         // Simple key - add directly.
         if (is_array) {
             // Find existing array entry or create new one.
             for (root.items) |*entry| {
-                if (std.mem.eql(u8, entry.key, parts.items[0])) {
+                if (std.mem.eql(u8, entry.key, parts[0])) {
                     if (entry.value == .array) {
                         // Append to existing array.
                         var arr = std.ArrayList(Value){};
@@ -203,151 +217,92 @@ fn insertNestedKey(
             var arr = std.ArrayList(Value){};
             try arr.append(allocator, value);
             try root.append(allocator, .{
-                .key = try allocator.dupe(u8, parts.items[0]),
+                .key = try allocator.dupe(u8, parts[0]),
                 .value = .{ .array = try arr.toOwnedSlice(allocator) },
             });
         } else {
             try root.append(allocator, .{
-                .key = try allocator.dupe(u8, parts.items[0]),
+                .key = try allocator.dupe(u8, parts[0]),
                 .value = value,
             });
         }
         return;
     }
 
-    // Multi-part key: find or create intermediate tables.
-    var current = root;
-    for (parts.items[0 .. parts.items.len - 1]) |part| {
-        var found = false;
-        for (current.items) |*entry| {
-            if (std.mem.eql(u8, entry.key, part)) {
-                if (entry.value == .table) {
-                    // Convert to mutable list for further insertions.
-                    var sub_list = std.ArrayList(TableEntry){};
-                    for (entry.value.table) |sub_entry| {
-                        try sub_list.append(allocator, sub_entry);
-                    }
-                    // We need to work with this list and later update the entry.
-                    // For simplicity, insert directly and rebuild.
-                    const last_key = parts.items[parts.items.len - 1];
-                    if (is_array) {
-                        var arr_found = false;
-                        for (sub_list.items) |*sub_entry| {
-                            if (std.mem.eql(u8, sub_entry.key, last_key)) {
-                                if (sub_entry.value == .array) {
-                                    var arr = std.ArrayList(Value){};
-                                    for (sub_entry.value.array) |item| {
-                                        try arr.append(allocator, item);
-                                    }
-                                    try arr.append(allocator, value);
-                                    sub_entry.value = .{ .array = try arr.toOwnedSlice(allocator) };
-                                    arr_found = true;
-                                    break;
-                                }
-                            }
+    // Multi-part key: find or create intermediate tables, then insert value at the leaf.
+    const part = parts[0];
+    for (root.items) |*entry| {
+        if (std.mem.eql(u8, entry.key, part)) {
+            if (entry.value == .table) {
+                // Descend into existing table with remaining parts via recursion.
+                var sub_list = std.ArrayList(TableEntry){};
+                for (entry.value.table) |sub_entry| {
+                    try sub_list.append(allocator, sub_entry);
+                }
+                try insertNestedKeyParts(allocator, &sub_list, parts[1..], value, is_array);
+                entry.value = .{ .table = try sub_list.toOwnedSlice(allocator) };
+                return;
+            } else if (entry.value == .array) {
+                // For arrays of tables, descend into the last element via recursion.
+                if (entry.value.array.len > 0) {
+                    const last_elem = entry.value.array[entry.value.array.len - 1];
+                    if (last_elem == .table) {
+                        var sub_list = std.ArrayList(TableEntry){};
+                        for (last_elem.table) |sub_entry| {
+                            try sub_list.append(allocator, sub_entry);
                         }
-                        if (!arr_found) {
-                            var arr = std.ArrayList(Value){};
-                            try arr.append(allocator, value);
-                            try sub_list.append(allocator, .{
-                                .key = try allocator.dupe(u8, last_key),
-                                .value = .{ .array = try arr.toOwnedSlice(allocator) },
-                            });
+                        try insertNestedKeyParts(allocator, &sub_list, parts[1..], value, is_array);
+                        // Rebuild array with updated last element.
+                        var new_arr = std.ArrayList(Value){};
+                        for (entry.value.array[0 .. entry.value.array.len - 1]) |item| {
+                            try new_arr.append(allocator, item);
                         }
-                    } else {
-                        try sub_list.append(allocator, .{
-                            .key = try allocator.dupe(u8, last_key),
-                            .value = value,
-                        });
-                    }
-                    entry.value = .{ .table = try sub_list.toOwnedSlice(allocator) };
-                    return;
-                } else if (entry.value == .array) {
-                    // For arrays of tables, append to the last element.
-                    if (entry.value.array.len > 0) {
-                        const last_elem = entry.value.array[entry.value.array.len - 1];
-                        if (last_elem == .table) {
-                            var sub_list = std.ArrayList(TableEntry){};
-                            for (last_elem.table) |sub_entry| {
-                                try sub_list.append(allocator, sub_entry);
-                            }
-                            const last_key = parts.items[parts.items.len - 1];
-                            try sub_list.append(allocator, .{
-                                .key = try allocator.dupe(u8, last_key),
-                                .value = value,
-                            });
-                            // Rebuild array with updated last element.
-                            var new_arr = std.ArrayList(Value){};
-                            for (entry.value.array[0 .. entry.value.array.len - 1]) |item| {
-                                try new_arr.append(allocator, item);
-                            }
-                            try new_arr.append(allocator, .{ .table = try sub_list.toOwnedSlice(allocator) });
-                            entry.value = .{ .array = try new_arr.toOwnedSlice(allocator) };
-                            return;
-                        }
+                        try new_arr.append(allocator, .{ .table = try sub_list.toOwnedSlice(allocator) });
+                        entry.value = .{ .array = try new_arr.toOwnedSlice(allocator) };
+                        return;
                     }
                 }
-                found = true;
-                break;
             }
-        }
-        if (!found) {
-            // Create intermediate table (placeholder, will be filled by recursive insert).
-            // For now, create the full path at once.
-            const remaining_key = parts.items[parts.items.len - 1];
-            var inner_entries = std.ArrayList(TableEntry){};
-
-            if (is_array) {
-                var arr = std.ArrayList(Value){};
-                try arr.append(allocator, value);
-                try inner_entries.append(allocator, .{
-                    .key = try allocator.dupe(u8, remaining_key),
-                    .value = .{ .array = try arr.toOwnedSlice(allocator) },
-                });
-            } else {
-                try inner_entries.append(allocator, .{
-                    .key = try allocator.dupe(u8, remaining_key),
-                    .value = value,
-                });
-            }
-
-            // Build nested tables from inside out.
-            var current_value = Value{ .table = try inner_entries.toOwnedSlice(allocator) };
-            var j: usize = parts.items.len - 2;
-            while (j > 0) : (j -= 1) {
-                if (!std.mem.eql(u8, parts.items[j], part)) {
-                    var wrapper = std.ArrayList(TableEntry){};
-                    try wrapper.append(allocator, .{
-                        .key = try allocator.dupe(u8, parts.items[j]),
-                        .value = current_value,
-                    });
-                    current_value = .{ .table = try wrapper.toOwnedSlice(allocator) };
-                } else break;
-            }
-
-            try current.append(allocator, .{
-                .key = try allocator.dupe(u8, part),
-                .value = current_value,
-            });
-            return;
+            break;
         }
     }
 
-    // If we got here through the loop without returning, add to root directly.
-    const final_key = parts.items[parts.items.len - 1];
+    // Not found: create the full remaining path at once, building nested tables from inside out.
+    const remaining_key = parts[parts.len - 1];
+    var inner_entries = std.ArrayList(TableEntry){};
+
     if (is_array) {
         var arr = std.ArrayList(Value){};
         try arr.append(allocator, value);
-        try current.append(allocator, .{
-            .key = try allocator.dupe(u8, final_key),
+        try inner_entries.append(allocator, .{
+            .key = try allocator.dupe(u8, remaining_key),
             .value = .{ .array = try arr.toOwnedSlice(allocator) },
         });
     } else {
-        try current.append(allocator, .{
-            .key = try allocator.dupe(u8, final_key),
+        try inner_entries.append(allocator, .{
+            .key = try allocator.dupe(u8, remaining_key),
             .value = value,
         });
     }
+
+    // Build nested tables from inside out for remaining intermediate parts.
+    var current_value = Value{ .table = try inner_entries.toOwnedSlice(allocator) };
+    if (parts.len >= 3) {
+        var j: usize = parts.len - 2;
+        while (j > 0) : (j -= 1) {
+            var wrapper = std.ArrayList(TableEntry){};
+            try wrapper.append(allocator, .{
+                .key = try allocator.dupe(u8, parts[j]),
+                .value = current_value,
+            });
+            current_value = .{ .table = try wrapper.toOwnedSlice(allocator) };
+        }
+    }
+
+    try root.append(allocator, .{
+        .key = try allocator.dupe(u8, part),
+        .value = current_value,
+    });
 }
 
 fn stripQuotes(s: []const u8) []const u8 {
@@ -511,6 +466,18 @@ fn parseBasicString(ctx: *ParseContext) ![]const u8 {
                 '"' => try result.append(ctx.allocator, '"'),
                 'b' => try result.append(ctx.allocator, 0x08),
                 'f' => try result.append(ctx.allocator, 0x0C),
+                'u', 'U' => {
+                    const n: usize = if (esc == 'u') 4 else 8;
+                    ctx.pos += 1;
+                    if (ctx.pos + n > ctx.source.len) return error.InvalidInput;
+                    const hex = ctx.source[ctx.pos .. ctx.pos + n];
+                    const codepoint = std.fmt.parseInt(u21, hex, 16) catch return error.InvalidInput;
+                    var buf: [4]u8 = undefined;
+                    const len = std.unicode.utf8Encode(codepoint, &buf) catch return error.InvalidInput;
+                    try result.appendSlice(ctx.allocator, buf[0..len]);
+                    ctx.pos += n;
+                    continue;
+                },
                 else => {
                     try result.append(ctx.allocator, '\\');
                     try result.append(ctx.allocator, esc);
@@ -565,6 +532,18 @@ fn parseMultiLineBasicString(ctx: *ParseContext) ![]const u8 {
                 'r' => try result.append(ctx.allocator, '\r'),
                 '\\' => try result.append(ctx.allocator, '\\'),
                 '"' => try result.append(ctx.allocator, '"'),
+                'u', 'U' => {
+                    const n: usize = if (esc == 'u') 4 else 8;
+                    ctx.pos += 1;
+                    if (ctx.pos + n > ctx.source.len) return error.InvalidInput;
+                    const hex = ctx.source[ctx.pos .. ctx.pos + n];
+                    const codepoint = std.fmt.parseInt(u21, hex, 16) catch return error.InvalidInput;
+                    var buf: [4]u8 = undefined;
+                    const len = std.unicode.utf8Encode(codepoint, &buf) catch return error.InvalidInput;
+                    try result.appendSlice(ctx.allocator, buf[0..len]);
+                    ctx.pos += n;
+                    continue;
+                },
                 '\n' => {
                     // Line-ending backslash: skip whitespace on next line.
                     ctx.pos += 1;

@@ -58,12 +58,14 @@ const ParseContext = struct {
     allocator: std.mem.Allocator,
 };
 
-/// Skip blank lines and comment-only lines starting from current position.
+/// Skip blank lines, comment-only lines, and document marker lines (--- / ...).
 fn skipBlanksAndComments(ctx: *ParseContext) void {
     while (ctx.pos < ctx.lines.len) {
         const line = ctx.lines[ctx.pos];
         const stripped = std.mem.trimLeft(u8, line, " ");
         if (stripped.len == 0 or stripped[0] == '#') {
+            ctx.pos += 1;
+        } else if (std.mem.eql(u8, stripped, "---") or std.mem.eql(u8, stripped, "...")) {
             ctx.pos += 1;
         } else {
             break;
