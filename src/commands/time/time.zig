@@ -159,12 +159,14 @@ pub fn parseRfc3339(input: []const u8) ?i64 {
     if (input.len >= 20) {
         const tz_char = input[19];
         if (tz_char == 'Z' or tz_char == 'z') {
+            if (input.len != 20) return null; // reject trailing characters
             tz_offset_seconds = 0;
         } else if (tz_char == '+' or tz_char == '-') {
             if (input.len < 25) return null;
             const tz_hours = std.fmt.parseInt(i64, input[20..22], 10) catch return null;
             if (input[22] != ':') return null;
             const tz_minutes = std.fmt.parseInt(i64, input[23..25], 10) catch return null;
+            if (input.len != 25) return null; // reject trailing characters
             tz_offset_seconds = (tz_hours * 3600) + (tz_minutes * 60);
             if (tz_char == '-') {
                 tz_offset_seconds = -tz_offset_seconds;
@@ -360,4 +362,7 @@ test "parseRfc3339 known values" {
     try std.testing.expectEqual(@as(?i64, 1705314600), parseRfc3339("2024-01-15T10:30:00Z"));
     try std.testing.expectEqual(@as(?i64, null), parseRfc3339("invalid"));
     try std.testing.expectEqual(@as(?i64, null), parseRfc3339(""));
+    // Trailing garbage must be rejected
+    try std.testing.expectEqual(@as(?i64, null), parseRfc3339("2024-01-15T10:30:00Zgarbage"));
+    try std.testing.expectEqual(@as(?i64, null), parseRfc3339("2024-01-15T10:30:00+02:00extra"));
 }
