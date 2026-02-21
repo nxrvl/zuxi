@@ -1,5 +1,4 @@
 const std = @import("std");
-const errors = @import("errors.zig");
 
 /// Output format for command results.
 pub const OutputFormat = enum {
@@ -57,10 +56,6 @@ pub const Context = struct {
         return self.stderr.deprecatedWriter();
     }
 
-    /// Print an error message to stderr.
-    pub fn printErr(self: Context, err: errors.ZuxiError, detail: ?[]const u8) !void {
-        try errors.printError(self.stderrWriter(), err, detail);
-    }
 };
 
 // --- Tests ---

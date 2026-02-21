@@ -51,6 +51,7 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
 fn splitIntoWords(allocator: std.mem.Allocator, input: []const u8) ![][]u8 {
     var words = std.ArrayList([]u8){};
     defer words.deinit(allocator);
+    errdefer for (words.items) |w| allocator.free(w);
 
     var word_start: usize = 0;
     var i: usize = 0;

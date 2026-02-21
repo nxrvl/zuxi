@@ -21,8 +21,8 @@ pub const TextInput = struct {
     /// Allocator.
     allocator: std.mem.Allocator,
 
-    fn emptyLine(allocator: std.mem.Allocator) []u8 {
-        return allocator.alloc(u8, 0) catch @constCast(@as([]const u8, ""));
+    fn emptyLine(_: std.mem.Allocator) []u8 {
+        return @constCast(@as([]const u8, ""));
     }
 
     /// Initialize with an empty buffer.

@@ -9,11 +9,6 @@ pub fn isTty(file: std.fs.File) bool {
     return file.isTty();
 }
 
-/// Check if stdin is being piped (i.e., not a terminal).
-pub fn isStdinPiped() bool {
-    return !isTty(std.fs.File.stdin());
-}
-
 /// Read all available data from a file handle into a dynamically allocated buffer.
 /// Caller owns the returned memory and must free it with the same allocator.
 pub fn readAll(file: std.fs.File, allocator: std.mem.Allocator) ![]u8 {
@@ -30,7 +25,7 @@ pub fn readAllTrimmed(file: std.fs.File, allocator: std.mem.Allocator) ![]u8 {
     }
     if (trimmed_len == 0) {
         allocator.free(data);
-        return allocator.alloc(u8, 0) catch return &.{};
+        return try allocator.alloc(u8, 0);
     }
     // Shrink the allocation to trimmed size.
     if (allocator.remap(data, trimmed_len)) |resized| {
@@ -89,14 +84,13 @@ pub const InputData = struct {
 
 // --- Tests ---
 
-test "isTty returns bool" {
-    const result = isTty(std.fs.File.stdout());
-    try std.testing.expect(result == true or result == false);
-}
-
-test "isStdinPiped returns bool" {
-    const result = isStdinPiped();
-    try std.testing.expect(result == true or result == false);
+test "isTty returns false for non-tty file" {
+    // A regular file is not a TTY.
+    const tmp_path = "zuxi_test_io_tty.tmp";
+    const f = try std.fs.cwd().createFile(tmp_path, .{});
+    defer f.close();
+    defer std.fs.cwd().deleteFile(tmp_path) catch {};
+    try std.testing.expect(!isTty(f));
 }
 
 test "writeToFile creates and writes file" {

@@ -119,7 +119,7 @@ zuxi http GET https://example.com --header "Authorization: Bearer token"
 ```bash
 zig build                          # Debug build
 zig build -Doptimize=ReleaseSafe   # Release build
-zig build -Dbuild_mode=lite        # Lite build (reduced features)
+zig build -Dmode=lite              # Lite build (reduced features)
 zig build test                     # Run tests
 zig build run                      # Build and run
 ```

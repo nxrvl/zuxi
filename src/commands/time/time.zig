@@ -10,9 +10,9 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
     if (std.mem.eql(u8, sub, "now")) {
         try showCurrentTime(ctx);
     } else if (std.mem.eql(u8, sub, "unix")) {
-        try rfc3339ToUnix(ctx);
-    } else if (std.mem.eql(u8, sub, "rfc3339")) {
         try unixToRfc3339(ctx);
+    } else if (std.mem.eql(u8, sub, "rfc3339")) {
+        try rfc3339ToUnix(ctx);
     } else {
         const writer = ctx.stderrWriter();
         try writer.print("time: unknown subcommand '{s}'\n", .{sub});
@@ -39,8 +39,8 @@ fn rfc3339ToUnix(ctx: context.Context) anyerror!void {
     const input = try io.getInput(ctx) orelse {
         const writer = ctx.stderrWriter();
         try writer.print("time: no input provided\n", .{});
-        try writer.print("Usage: zuxi time unix <rfc3339-string>\n", .{});
-        try writer.print("       echo '2024-01-15T10:30:00Z' | zuxi time unix\n", .{});
+        try writer.print("Usage: zuxi time rfc3339 <rfc3339-string>\n", .{});
+        try writer.print("       echo '2024-01-15T10:30:00Z' | zuxi time rfc3339\n", .{});
         return error.MissingArgument;
     };
     defer input.deinit(ctx.allocator);
@@ -68,8 +68,8 @@ fn unixToRfc3339(ctx: context.Context) anyerror!void {
     const input = try io.getInput(ctx) orelse {
         const writer = ctx.stderrWriter();
         try writer.print("time: no input provided\n", .{});
-        try writer.print("Usage: zuxi time rfc3339 <unix-timestamp>\n", .{});
-        try writer.print("       echo '1705314600' | zuxi time rfc3339\n", .{});
+        try writer.print("Usage: zuxi time unix <unix-timestamp>\n", .{});
+        try writer.print("       echo '1705314600' | zuxi time unix\n", .{});
         return error.MissingArgument;
     };
     defer input.deinit(ctx.allocator);
@@ -260,71 +260,71 @@ fn execWithInput(input: ?[]const u8, subcommand: ?[]const u8) ![]u8 {
     return try file.readToEndAlloc(allocator, io.max_input_size);
 }
 
-test "time rfc3339 from known unix timestamp" {
+test "time unix converts timestamp to rfc3339" {
     // 1705314600 = 2024-01-15T10:30:00Z
-    const output = try execWithInput("1705314600", "rfc3339");
+    const output = try execWithInput("1705314600", "unix");
     defer std.testing.allocator.free(output);
     const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("2024-01-15T10:30:00Z", trimmed);
 }
 
-test "time rfc3339 from epoch zero" {
-    const output = try execWithInput("0", "rfc3339");
+test "time unix from epoch zero" {
+    const output = try execWithInput("0", "unix");
     defer std.testing.allocator.free(output);
     const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("1970-01-01T00:00:00Z", trimmed);
 }
 
-test "time unix from known rfc3339" {
-    const output = try execWithInput("2024-01-15T10:30:00Z", "unix");
+test "time rfc3339 converts to unix timestamp" {
+    const output = try execWithInput("2024-01-15T10:30:00Z", "rfc3339");
     defer std.testing.allocator.free(output);
     const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("1705314600", trimmed);
 }
 
-test "time unix from epoch start" {
-    const output = try execWithInput("1970-01-01T00:00:00Z", "unix");
+test "time rfc3339 from epoch start" {
+    const output = try execWithInput("1970-01-01T00:00:00Z", "rfc3339");
     defer std.testing.allocator.free(output);
     const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("0", trimmed);
 }
 
-test "time unix from rfc3339 with positive offset" {
+test "time rfc3339 with positive offset" {
     // 2024-01-15T12:30:00+02:00 = 2024-01-15T10:30:00Z = 1705314600
-    const output = try execWithInput("2024-01-15T12:30:00+02:00", "unix");
+    const output = try execWithInput("2024-01-15T12:30:00+02:00", "rfc3339");
     defer std.testing.allocator.free(output);
     const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("1705314600", trimmed);
 }
 
-test "time unix from rfc3339 with negative offset" {
+test "time rfc3339 with negative offset" {
     // 2024-01-15T05:30:00-05:00 = 2024-01-15T10:30:00Z = 1705314600
-    const output = try execWithInput("2024-01-15T05:30:00-05:00", "unix");
+    const output = try execWithInput("2024-01-15T05:30:00-05:00", "rfc3339");
     defer std.testing.allocator.free(output);
     const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("1705314600", trimmed);
 }
 
 test "time roundtrip: unix -> rfc3339 -> unix" {
-    // Convert 1705314600 to rfc3339
-    const rfc_output = try execWithInput("1705314600", "rfc3339");
+    // Convert 1705314600 via unix subcommand (outputs rfc3339)
+    const rfc_output = try execWithInput("1705314600", "unix");
     defer std.testing.allocator.free(rfc_output);
     const rfc_trimmed = std.mem.trimRight(u8, rfc_output, &std.ascii.whitespace);
 
-    // Convert back to unix
-    const unix_output = try execWithInput(rfc_trimmed, "unix");
+    // Convert back via rfc3339 subcommand (outputs unix)
+    const unix_output = try execWithInput(rfc_trimmed, "rfc3339");
     defer std.testing.allocator.free(unix_output);
     const unix_trimmed = std.mem.trimRight(u8, unix_output, &std.ascii.whitespace);
     try std.testing.expectEqualStrings("1705314600", unix_trimmed);
 }
 
-test "time unix invalid rfc3339 input" {
-    const result = execWithInput("not-a-date", "unix");
+test "time rfc3339 invalid input" {
+    const result = execWithInput("not-a-date", "rfc3339");
     try std.testing.expectError(error.InvalidInput, result);
 }
 
-test "time rfc3339 invalid unix input" {
-    const result = execWithInput("not-a-number", "rfc3339");
+test "time unix invalid input" {
+    const result = execWithInput("not-a-number", "unix");
     try std.testing.expectError(error.InvalidInput, result);
 }
 
@@ -335,6 +335,11 @@ test "time unknown subcommand" {
 
 test "time no input for unix subcommand" {
     const result = execWithInput(null, "unix");
+    try std.testing.expectError(error.MissingArgument, result);
+}
+
+test "time no input for rfc3339 subcommand" {
+    const result = execWithInput(null, "rfc3339");
     try std.testing.expectError(error.MissingArgument, result);
 }
 

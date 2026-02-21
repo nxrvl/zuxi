@@ -77,42 +77,16 @@ pub fn prettyPrintJson(allocator: std.mem.Allocator, data: []const u8) ![]u8 {
     }) catch return error.OutOfMemory;
 }
 
-/// Parse the HTTP method from a subcommand string.
+/// Parse the HTTP method from a subcommand string (case-insensitive).
 pub fn parseMethod(subcommand: ?[]const u8) !std.http.Method {
     const sub = subcommand orelse return .GET;
-    if (std.mem.eql(u8, sub, "get")) return .GET;
-    if (std.mem.eql(u8, sub, "post")) return .POST;
-    if (std.mem.eql(u8, sub, "put")) return .PUT;
-    if (std.mem.eql(u8, sub, "delete")) return .DELETE;
-    if (std.mem.eql(u8, sub, "patch")) return .PATCH;
-    if (std.mem.eql(u8, sub, "head")) return .HEAD;
+    if (std.ascii.eqlIgnoreCase(sub, "get")) return .GET;
+    if (std.ascii.eqlIgnoreCase(sub, "post")) return .POST;
+    if (std.ascii.eqlIgnoreCase(sub, "put")) return .PUT;
+    if (std.ascii.eqlIgnoreCase(sub, "delete")) return .DELETE;
+    if (std.ascii.eqlIgnoreCase(sub, "patch")) return .PATCH;
+    if (std.ascii.eqlIgnoreCase(sub, "head")) return .HEAD;
     return error.InvalidArgument;
-}
-
-/// Format a status code as a display string.
-pub fn statusPhrase(status: std.http.Status) []const u8 {
-    return switch (status) {
-        .ok => "OK",
-        .created => "Created",
-        .accepted => "Accepted",
-        .no_content => "No Content",
-        .moved_permanently => "Moved Permanently",
-        .found => "Found",
-        .see_other => "See Other",
-        .not_modified => "Not Modified",
-        .temporary_redirect => "Temporary Redirect",
-        .permanent_redirect => "Permanent Redirect",
-        .bad_request => "Bad Request",
-        .unauthorized => "Unauthorized",
-        .forbidden => "Forbidden",
-        .not_found => "Not Found",
-        .method_not_allowed => "Method Not Allowed",
-        .internal_server_error => "Internal Server Error",
-        .bad_gateway => "Bad Gateway",
-        .service_unavailable => "Service Unavailable",
-        .gateway_timeout => "Gateway Timeout",
-        else => "Unknown",
-    };
 }
 
 /// Entry point for the http command.
@@ -389,17 +363,16 @@ test "parseMethod returns correct methods" {
     try std.testing.expectEqual(std.http.Method.HEAD, try parseMethod("head"));
 }
 
+test "parseMethod accepts uppercase methods" {
+    try std.testing.expectEqual(std.http.Method.GET, try parseMethod("GET"));
+    try std.testing.expectEqual(std.http.Method.POST, try parseMethod("POST"));
+    try std.testing.expectEqual(std.http.Method.PUT, try parseMethod("Put"));
+    try std.testing.expectEqual(std.http.Method.DELETE, try parseMethod("DELETE"));
+}
+
 test "parseMethod rejects unknown method" {
     const result = parseMethod("foobar");
     try std.testing.expectError(error.InvalidArgument, result);
-}
-
-test "statusPhrase returns known phrases" {
-    try std.testing.expectEqualStrings("OK", statusPhrase(.ok));
-    try std.testing.expectEqualStrings("Not Found", statusPhrase(.not_found));
-    try std.testing.expectEqualStrings("Internal Server Error", statusPhrase(.internal_server_error));
-    try std.testing.expectEqualStrings("Bad Request", statusPhrase(.bad_request));
-    try std.testing.expectEqualStrings("Created", statusPhrase(.created));
 }
 
 test "http command struct fields" {

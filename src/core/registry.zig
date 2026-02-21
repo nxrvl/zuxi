@@ -24,11 +24,6 @@ pub fn categoryName(cat: Category) []const u8 {
     };
 }
 
-/// The error type returned by command execute functions.
-/// Uses anyerror to accommodate all possible I/O and system errors
-/// that may arise during command execution.
-pub const CommandError = anyerror;
-
 /// A registered command definition.
 pub const Command = struct {
     /// Primary command name (e.g., "jsonfmt", "base64").
@@ -111,16 +106,6 @@ var global_registry = Registry{};
 /// Get the global registry.
 pub fn getGlobalRegistry() *Registry {
     return &global_registry;
-}
-
-/// Register a command in the global registry.
-pub fn registerCommand(cmd: Command) errors.ZuxiError!void {
-    return global_registry.register(cmd);
-}
-
-/// Look up a command in the global registry.
-pub fn lookupCommand(name: []const u8) ?Command {
-    return global_registry.lookup(name);
 }
 
 // --- Tests ---

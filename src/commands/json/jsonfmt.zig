@@ -39,7 +39,7 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
 }
 
 /// Parse JSON input and return the parsed value. Returns FormatError on invalid JSON.
-fn parseJson(ctx: context.Context, data: []const u8) registry.CommandError!std.json.Parsed(std.json.Value) {
+fn parseJson(ctx: context.Context, data: []const u8) anyerror!std.json.Parsed(std.json.Value) {
     return std.json.parseFromSlice(std.json.Value, ctx.allocator, data, .{}) catch {
         const writer = ctx.stderrWriter();
         try writer.print("jsonfmt: invalid JSON input\n", .{});

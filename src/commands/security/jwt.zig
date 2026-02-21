@@ -135,6 +135,7 @@ fn writeTimestamp(w: anytype, obj: std.json.ObjectMap, key: []const u8, label: [
     if (obj.get(key)) |val| {
         if (val == .integer) {
             const ts = val.integer;
+            if (ts < 0) return;
             const epoch: std.time.epoch.EpochSeconds = .{ .secs = @intCast(ts) };
             const day = epoch.getDaySeconds();
             const yd = epoch.getEpochDay().calculateYearDay();
