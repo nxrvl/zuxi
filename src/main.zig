@@ -7,6 +7,8 @@ const errors = @import("core/errors.zig");
 const jsonfmt = @import("commands/json/jsonfmt.zig");
 const base64_cmd = @import("commands/encoding/base64.zig");
 const strcase_cmd = @import("commands/encoding/strcase.zig");
+const hash_cmd = @import("commands/security/hash.zig");
+const jwt_cmd = @import("commands/security/jwt.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -42,6 +44,8 @@ pub fn main() !void {
         jsonfmt.command,
         base64_cmd.command,
         strcase_cmd.command,
+        hash_cmd.command,
+        jwt_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -106,6 +110,8 @@ comptime {
     _ = @import("commands/json/jsonfmt.zig");
     _ = @import("commands/encoding/base64.zig");
     _ = @import("commands/encoding/strcase.zig");
+    _ = @import("commands/security/hash.zig");
+    _ = @import("commands/security/jwt.zig");
 }
 
 // --- Tests ---

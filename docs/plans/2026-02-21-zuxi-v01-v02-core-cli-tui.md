@@ -89,11 +89,11 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Create: `src/commands/security/hash.zig`
 - Create: `src/commands/security/jwt.zig`
 
-- [ ] Implement hash with subcommands: sha256, sha512, md5 - support string input and file input
-- [ ] Implement jwt decode: split JWT, base64-decode header and payload, display as formatted JSON, show exp/iat timestamps as human-readable, indicate if expired
-- [ ] Register both commands in the registry
-- [ ] Write tests for hash (known hash values) and jwt (decode known tokens, invalid tokens)
-- [ ] Run test suite - must pass before task 7
+- [x] Implement hash with subcommands: sha256, sha512, md5 - support string input and file input
+- [x] Implement jwt decode: split JWT, base64-decode header and payload, display as formatted JSON, show exp/iat timestamps as human-readable, indicate if expired
+- [x] Register both commands in the registry
+- [x] Write tests for hash (known hash values) and jwt (decode known tokens, invalid tokens)
+- [x] Run test suite - must pass before task 7
 
 ### Task 7: Utility commands - time, uuid
 
