@@ -185,12 +185,12 @@ other formatted outputs.
 - Create: `src/commands/json/toml2yaml.zig`
 - Modify: `src/main.zig`
 
-- [ ] Create shared conversion layer using std.json.Value as intermediate representation
-- [ ] Implement all 8 conversion commands: json2yaml, yaml2json, json2toml, toml2json, json2xml, xml2json, yaml2toml, toml2yaml
-- [ ] Each command: parse source format -> intermediate -> serialize target format
-- [ ] Register all 8 commands
-- [ ] Write roundtrip tests for each conversion pair
-- [ ] Run project test suite - must pass before task 11
+- [x] Create shared conversion layer using std.json.Value as intermediate representation
+- [x] Implement all 8 conversion commands: json2yaml, yaml2json, json2toml, toml2json, json2xml, xml2json, yaml2toml, toml2yaml
+- [x] Each command: parse source format -> intermediate -> serialize target format
+- [x] Register all 8 commands
+- [x] Write roundtrip tests for each conversion pair
+- [x] Run project test suite - must pass before task 11
 
 ### Task 11: CSV/TSV tools - csv2json, csv2md, tsv2md
 

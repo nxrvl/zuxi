@@ -978,6 +978,65 @@ fn serializeInlineValue(allocator: std.mem.Allocator, output: *std.ArrayList(u8)
     }
 }
 
+/// Convert a TOML Value tree to std.json.Value for interop with other commands.
+pub fn toJsonValue(allocator: std.mem.Allocator, value: Value) !std.json.Value {
+    switch (value) {
+        .string => |s| return .{ .string = s },
+        .integer => |n| return .{ .integer = n },
+        .float => |f| return .{ .float = f },
+        .boolean => |b| return .{ .bool = b },
+        .datetime => |dt| return .{ .string = dt },
+        .array => |items| {
+            var arr = std.json.Array.init(allocator);
+            for (items) |item| {
+                const jval = try toJsonValue(allocator, item);
+                try arr.append(jval);
+            }
+            return .{ .array = arr };
+        },
+        .table => |entries| {
+            var obj = std.json.ObjectMap.init(allocator);
+            for (entries) |entry| {
+                const jval = try toJsonValue(allocator, entry.value);
+                try obj.put(entry.key, jval);
+            }
+            return .{ .object = obj };
+        },
+    }
+}
+
+/// Convert a std.json.Value tree to a TOML Value.
+pub fn fromJsonValue(allocator: std.mem.Allocator, jval: std.json.Value) !Value {
+    switch (jval) {
+        .null => return .{ .string = "null" },
+        .bool => |b| return .{ .boolean = b },
+        .integer => |n| return .{ .integer = n },
+        .float => |f| return .{ .float = f },
+        .string => |s| return .{ .string = s },
+        .number_string => |s| return .{ .string = s },
+        .array => |arr| {
+            var items = std.ArrayList(Value){};
+            for (arr.items) |item| {
+                const v = try fromJsonValue(allocator, item);
+                try items.append(allocator, v);
+            }
+            return .{ .array = try items.toOwnedSlice(allocator) };
+        },
+        .object => |obj| {
+            var entries = std.ArrayList(TableEntry){};
+            var it = obj.iterator();
+            while (it.next()) |kv| {
+                const v = try fromJsonValue(allocator, kv.value_ptr.*);
+                try entries.append(allocator, .{
+                    .key = try allocator.dupe(u8, kv.key_ptr.*),
+                    .value = v,
+                });
+            }
+            return .{ .table = try entries.toOwnedSlice(allocator) };
+        },
+    }
+}
+
 // --- Tests ---
 
 test "parse simple key-value" {

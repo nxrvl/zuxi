@@ -741,6 +741,44 @@ pub fn toJsonValue(allocator: std.mem.Allocator, value: Value) !std.json.Value {
     }
 }
 
+/// Convert a std.json.Value tree to a YAML Value.
+pub fn fromJsonValue(allocator: std.mem.Allocator, jval: std.json.Value) !Value {
+    switch (jval) {
+        .null => return .{ .scalar = try allocator.dupe(u8, "null") },
+        .bool => |b| return .{ .scalar = try allocator.dupe(u8, if (b) "true" else "false") },
+        .integer => |n| {
+            const s = try std.fmt.allocPrint(allocator, "{d}", .{n});
+            return .{ .scalar = s };
+        },
+        .float => |f| {
+            const s = try std.fmt.allocPrint(allocator, "{d}", .{f});
+            return .{ .scalar = s };
+        },
+        .string => |s| return .{ .scalar = try allocator.dupe(u8, s) },
+        .number_string => |s| return .{ .scalar = try allocator.dupe(u8, s) },
+        .array => |arr| {
+            var items = std.ArrayList(Value){};
+            for (arr.items) |item| {
+                const v = try fromJsonValue(allocator, item);
+                try items.append(allocator, v);
+            }
+            return .{ .sequence = try items.toOwnedSlice(allocator) };
+        },
+        .object => |obj| {
+            var entries = std.ArrayList(MapEntry){};
+            var it = obj.iterator();
+            while (it.next()) |kv| {
+                const v = try fromJsonValue(allocator, kv.value_ptr.*);
+                try entries.append(allocator, .{
+                    .key = try allocator.dupe(u8, kv.key_ptr.*),
+                    .value = v,
+                });
+            }
+            return .{ .mapping = try entries.toOwnedSlice(allocator) };
+        },
+    }
+}
+
 // --- Tests ---
 
 test "parse simple mapping" {

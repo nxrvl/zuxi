@@ -26,6 +26,14 @@ const yamlfmt_cmd = @import("commands/json/yamlfmt.zig");
 const yamlstruct_cmd = @import("commands/json/yamlstruct.zig");
 const tomlfmt_cmd = @import("commands/json/tomlfmt.zig");
 const xmlfmt_cmd = @import("commands/json/xmlfmt.zig");
+const json2yaml_cmd = @import("commands/json/json2yaml.zig");
+const yaml2json_cmd = @import("commands/json/yaml2json.zig");
+const json2toml_cmd = @import("commands/json/json2toml.zig");
+const toml2json_cmd = @import("commands/json/toml2json.zig");
+const json2xml_cmd = @import("commands/json/json2xml.zig");
+const xml2json_cmd = @import("commands/json/xml2json.zig");
+const yaml2toml_cmd = @import("commands/json/yaml2toml.zig");
+const toml2yaml_cmd = @import("commands/json/toml2yaml.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -82,6 +90,14 @@ pub fn main() !void {
         yamlstruct_cmd.command,
         tomlfmt_cmd.command,
         xmlfmt_cmd.command,
+        json2yaml_cmd.command,
+        yaml2json_cmd.command,
+        json2toml_cmd.command,
+        toml2json_cmd.command,
+        json2xml_cmd.command,
+        xml2json_cmd.command,
+        yaml2toml_cmd.command,
+        toml2yaml_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -174,6 +190,14 @@ comptime {
     _ = @import("commands/json/tomlfmt.zig");
     _ = @import("formats/xml.zig");
     _ = @import("commands/json/xmlfmt.zig");
+    _ = @import("commands/json/json2yaml.zig");
+    _ = @import("commands/json/yaml2json.zig");
+    _ = @import("commands/json/json2toml.zig");
+    _ = @import("commands/json/toml2json.zig");
+    _ = @import("commands/json/json2xml.zig");
+    _ = @import("commands/json/xml2json.zig");
+    _ = @import("commands/json/yaml2toml.zig");
+    _ = @import("commands/json/toml2yaml.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

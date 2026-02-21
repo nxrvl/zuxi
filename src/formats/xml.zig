@@ -517,6 +517,149 @@ fn elementToJson(allocator: std.mem.Allocator, elem: Element) anyerror!std.json.
     return .{ .object = wrapper };
 }
 
+/// Convert a std.json.Value to XML nodes. Expects an object with a single root key.
+pub fn fromJsonValue(allocator: std.mem.Allocator, jval: std.json.Value) ![]const Node {
+    switch (jval) {
+        .object => |obj| {
+            // A JSON object with a single key becomes a root element.
+            var nodes = std.ArrayList(Node){};
+            var it = obj.iterator();
+            while (it.next()) |kv| {
+                const elem = try jsonToElement(allocator, kv.key_ptr.*, kv.value_ptr.*);
+                try nodes.append(allocator, .{ .element = elem });
+            }
+            return try nodes.toOwnedSlice(allocator);
+        },
+        .array => |arr| {
+            // Array of objects -> multiple root elements.
+            var nodes = std.ArrayList(Node){};
+            for (arr.items) |item| {
+                if (item == .object) {
+                    var it = item.object.iterator();
+                    while (it.next()) |kv| {
+                        const elem = try jsonToElement(allocator, kv.key_ptr.*, kv.value_ptr.*);
+                        try nodes.append(allocator, .{ .element = elem });
+                    }
+                }
+            }
+            return try nodes.toOwnedSlice(allocator);
+        },
+        else => {
+            // Wrap scalar in a <root> element.
+            const text = try jsonValueToString(allocator, jval);
+            var children = std.ArrayList(Node){};
+            try children.append(allocator, .{ .text = text });
+            var nodes = std.ArrayList(Node){};
+            try nodes.append(allocator, .{ .element = .{
+                .tag = try allocator.dupe(u8, "root"),
+                .attributes = &.{},
+                .children = try children.toOwnedSlice(allocator),
+                .self_closing = false,
+            } });
+            return try nodes.toOwnedSlice(allocator);
+        },
+    }
+}
+
+fn jsonToElement(allocator: std.mem.Allocator, tag: []const u8, value: std.json.Value) anyerror!Element {
+    switch (value) {
+        .string => |s| {
+            var children = std.ArrayList(Node){};
+            try children.append(allocator, .{ .text = try allocator.dupe(u8, s) });
+            return .{
+                .tag = try allocator.dupe(u8, tag),
+                .attributes = &.{},
+                .children = try children.toOwnedSlice(allocator),
+                .self_closing = false,
+            };
+        },
+        .object => |obj| {
+            var attrs = std.ArrayList(Attribute){};
+            var children = std.ArrayList(Node){};
+
+            var it = obj.iterator();
+            while (it.next()) |kv| {
+                const key = kv.key_ptr.*;
+                const val = kv.value_ptr.*;
+
+                // Keys starting with @ are attributes.
+                if (key.len > 1 and key[0] == '@') {
+                    const attr_name = try allocator.dupe(u8, key[1..]);
+                    const attr_val = try jsonValueToString(allocator, val);
+                    try attrs.append(allocator, .{ .name = attr_name, .value = attr_val });
+                } else if (std.mem.eql(u8, key, "#text")) {
+                    const text = try jsonValueToString(allocator, val);
+                    try children.append(allocator, .{ .text = text });
+                } else {
+                    // Nested element(s).
+                    switch (val) {
+                        .array => |arr| {
+                            // Array of same-named elements.
+                            for (arr.items) |item| {
+                                const child_elem = try jsonToElement(allocator, key, item);
+                                try children.append(allocator, .{ .element = child_elem });
+                            }
+                        },
+                        else => {
+                            const child_elem = try jsonToElement(allocator, key, val);
+                            try children.append(allocator, .{ .element = child_elem });
+                        },
+                    }
+                }
+            }
+
+            const has_children = children.items.len > 0;
+            const has_attrs = attrs.items.len > 0;
+            return .{
+                .tag = try allocator.dupe(u8, tag),
+                .attributes = try attrs.toOwnedSlice(allocator),
+                .children = try children.toOwnedSlice(allocator),
+                .self_closing = !has_children and !has_attrs,
+            };
+        },
+        .array => |arr| {
+            // An array value for a single element -> wrap items as children.
+            var children = std.ArrayList(Node){};
+            for (arr.items, 0..) |item, idx| {
+                const child_tag = try std.fmt.allocPrint(allocator, "item", .{});
+                _ = idx;
+                const child_elem = try jsonToElement(allocator, child_tag, item);
+                try children.append(allocator, .{ .element = child_elem });
+            }
+            return .{
+                .tag = try allocator.dupe(u8, tag),
+                .attributes = &.{},
+                .children = try children.toOwnedSlice(allocator),
+                .self_closing = false,
+            };
+        },
+        else => {
+            // Scalar -> text child.
+            var children = std.ArrayList(Node){};
+            const text = try jsonValueToString(allocator, value);
+            try children.append(allocator, .{ .text = text });
+            return .{
+                .tag = try allocator.dupe(u8, tag),
+                .attributes = &.{},
+                .children = try children.toOwnedSlice(allocator),
+                .self_closing = false,
+            };
+        },
+    }
+}
+
+fn jsonValueToString(allocator: std.mem.Allocator, jval: std.json.Value) ![]const u8 {
+    return switch (jval) {
+        .string => |s| try allocator.dupe(u8, s),
+        .integer => |n| try std.fmt.allocPrint(allocator, "{d}", .{n}),
+        .float => |f| try std.fmt.allocPrint(allocator, "{d}", .{f}),
+        .bool => |b| try allocator.dupe(u8, if (b) "true" else "false"),
+        .null => try allocator.dupe(u8, ""),
+        .number_string => |s| try allocator.dupe(u8, s),
+        else => try allocator.dupe(u8, ""),
+    };
+}
+
 // --- Tests ---
 
 test "parse simple element" {
