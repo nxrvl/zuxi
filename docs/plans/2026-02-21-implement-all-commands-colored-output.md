@@ -218,13 +218,13 @@ other formatted outputs.
 - Create: `src/commands/docs/gqlquery.zig`
 - Modify: `src/main.zig`
 
-- [ ] cssfmt: format CSS (brace/semicolon-level parsing, re-indent rules, one property per line)
-- [ ] cssmin: minify CSS (strip comments, collapse whitespace, remove unnecessary semicolons)
-- [ ] htmlfmt: format HTML (tag-level parsing, re-indent nested tags, preserve inline content)
-- [ ] gqlquery: format GraphQL queries (brace/paren-level parsing, re-indent)
-- [ ] Register all 4 commands
-- [ ] Write tests with sample CSS/HTML/GraphQL inputs
-- [ ] Run project test suite - must pass before task 13
+- [x] cssfmt: format CSS (brace/semicolon-level parsing, re-indent rules, one property per line)
+- [x] cssmin: minify CSS (strip comments, collapse whitespace, remove unnecessary semicolons)
+- [x] htmlfmt: format HTML (tag-level parsing, re-indent nested tags, preserve inline content)
+- [x] gqlquery: format GraphQL queries (brace/paren-level parsing, re-indent)
+- [x] Register all 4 commands
+- [x] Write tests with sample CSS/HTML/GraphQL inputs
+- [x] Run project test suite - must pass before task 13
 
 ### Task 13: Network/URL tools - urls, ports
 

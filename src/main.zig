@@ -37,6 +37,10 @@ const toml2yaml_cmd = @import("commands/json/toml2yaml.zig");
 const csv2json_cmd = @import("commands/docs/csv2json.zig");
 const csv2md_cmd = @import("commands/docs/csv2md.zig");
 const tsv2md_cmd = @import("commands/docs/tsv2md.zig");
+const cssfmt_cmd = @import("commands/docs/cssfmt.zig");
+const cssmin_cmd = @import("commands/docs/cssmin.zig");
+const htmlfmt_cmd = @import("commands/docs/htmlfmt.zig");
+const gqlquery_cmd = @import("commands/docs/gqlquery.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -104,6 +108,10 @@ pub fn main() !void {
         csv2json_cmd.command,
         csv2md_cmd.command,
         tsv2md_cmd.command,
+        cssfmt_cmd.command,
+        cssmin_cmd.command,
+        htmlfmt_cmd.command,
+        gqlquery_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -208,6 +216,10 @@ comptime {
     _ = @import("commands/docs/csv2json.zig");
     _ = @import("commands/docs/csv2md.zig");
     _ = @import("commands/docs/tsv2md.zig");
+    _ = @import("commands/docs/cssfmt.zig");
+    _ = @import("commands/docs/cssmin.zig");
+    _ = @import("commands/docs/htmlfmt.zig");
+    _ = @import("commands/docs/gqlquery.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");
