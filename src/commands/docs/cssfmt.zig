@@ -76,8 +76,17 @@ pub fn formatCss(allocator: std.mem.Allocator, src: []const u8) ![]u8 {
         // Handle strings
         if (in_string != 0) {
             try out.append(allocator, src[i]);
-            if (src[i] == in_string and (i == 0 or src[i - 1] != '\\')) {
-                in_string = 0;
+            if (src[i] == in_string) {
+                // Count consecutive preceding backslashes; odd means quote is escaped.
+                var bs: usize = 0;
+                var j = i;
+                while (j > 0 and src[j - 1] == '\\') {
+                    bs += 1;
+                    j -= 1;
+                }
+                if (bs % 2 == 0) {
+                    in_string = 0;
+                }
             }
             i += 1;
             continue;
