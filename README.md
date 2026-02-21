@@ -6,13 +6,40 @@ No telemetry. No external runtime dependencies.
 
 ## Install
 
-Build from source (requires [Zig](https://ziglang.org/) 0.15+):
+### macOS (Homebrew)
+
+```bash
+brew install nxrvl/tap/zuxi
+```
+
+### Linux (Debian/Ubuntu)
+
+```bash
+# amd64
+curl -LO https://github.com/nxrvl/zuxi/releases/latest/download/zuxi_VERSION_amd64.deb
+sudo dpkg -i zuxi_VERSION_amd64.deb
+```
+
+### Linux (Fedora/RHEL)
+
+```bash
+# x86_64
+curl -LO https://github.com/nxrvl/zuxi/releases/latest/download/zuxi-VERSION-1.x86_64.rpm
+sudo rpm -i zuxi-VERSION-1.x86_64.rpm
+```
+
+### Binary download
+
+Download from [Releases](https://github.com/nxrvl/zuxi/releases) — static binaries for macOS (arm64, amd64) and Linux (amd64, arm64).
+
+### Build from source
+
+Requires [Zig](https://ziglang.org/) 0.15+:
 
 ```bash
 zig build -Doptimize=ReleaseSafe
+# Binary at zig-out/bin/zuxi
 ```
-
-The binary is at `zig-out/bin/zuxi`.
 
 ## Usage
 

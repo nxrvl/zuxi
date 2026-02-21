@@ -1,0 +1,244 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  ZIG_VERSION: "0.15.2"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Run tests
+        run: zig build test
+
+  build-macos:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-macos
+            os: macos-14
+            arch: arm64
+          - target: x86_64-macos
+            os: macos-13
+            arch: amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCHIVE="zuxi-${VERSION}-macos-${{ matrix.arch }}"
+          mkdir -p "${ARCHIVE}"
+          cp zig-out/bin/zuxi "${ARCHIVE}/"
+          cp README.md LICENSE "${ARCHIVE}/"
+          tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
+          shasum -a 256 "${ARCHIVE}.tar.gz" > "${ARCHIVE}.tar.gz.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zuxi-macos-${{ matrix.arch }}
+          path: |
+            zuxi-*.tar.gz
+            zuxi-*.tar.gz.sha256
+
+  build-linux:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-linux-musl
+            arch: amd64
+          - target: aarch64-linux-musl
+            arch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }}
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCHIVE="zuxi-${VERSION}-linux-${{ matrix.arch }}"
+          mkdir -p "${ARCHIVE}"
+          cp zig-out/bin/zuxi "${ARCHIVE}/"
+          cp README.md LICENSE "${ARCHIVE}/"
+          tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
+          sha256sum "${ARCHIVE}.tar.gz" > "${ARCHIVE}.tar.gz.sha256"
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: zuxi-linux-${{ matrix.arch }}
+          path: |
+            zuxi-*.tar.gz
+            zuxi-*.tar.gz.sha256
+
+      - name: Upload binary for packaging
+        uses: actions/upload-artifact@v4
+        with:
+          name: zuxi-binary-linux-${{ matrix.arch }}
+          path: zig-out/bin/zuxi
+
+  package-linux:
+    needs: build-linux
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            nfpm_arch: amd64
+            rpm_arch: x86_64
+          - arch: arm64
+            nfpm_arch: arm64
+            rpm_arch: aarch64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: zuxi-binary-linux-${{ matrix.arch }}
+          path: dist/
+
+      - name: Make binary executable
+        run: chmod +x dist/zuxi
+
+      - name: Install nfpm
+        run: |
+          curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.41.1/nfpm_2.41.1_Linux_x86_64.tar.gz | tar xz -C /usr/local/bin nfpm
+
+      - name: Build deb and rpm
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed "s/__VERSION__/${VERSION}/g; s/__ARCH__/${{ matrix.nfpm_arch }}/g" nfpm.yaml > nfpm-resolved.yaml
+          nfpm package -f nfpm-resolved.yaml -p deb -t "zuxi_${VERSION}_${{ matrix.nfpm_arch }}.deb"
+          nfpm package -f nfpm-resolved.yaml -p rpm -t "zuxi-${VERSION}-1.${{ matrix.rpm_arch }}.rpm"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: zuxi-packages-${{ matrix.arch }}
+          path: |
+            zuxi_*.deb
+            zuxi-*.rpm
+
+  release:
+    needs: [build-macos, build-linux, package-linux]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha256_macos_arm64: ${{ steps.checksums.outputs.sha256_macos_arm64 }}
+      sha256_macos_amd64: ${{ steps.checksums.outputs.sha256_macos_amd64 }}
+    steps:
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Extract checksums
+        id: checksums
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "sha256_macos_arm64=$(awk '{print $1}' zuxi-${VERSION}-macos-arm64.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+          echo "sha256_macos_amd64=$(awk '{print $1}' zuxi-${VERSION}-macos-amd64.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            zuxi-*.tar.gz
+            zuxi-*.tar.gz.sha256
+            zuxi_*.deb
+            zuxi-*.rpm
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate formula
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          SHA_ARM64: ${{ needs.release.outputs.sha256_macos_arm64 }}
+          SHA_AMD64: ${{ needs.release.outputs.sha256_macos_amd64 }}
+        run: |
+          BASE="https://github.com/nxrvl/zuxi/releases/download/v${VERSION}"
+          cat > zuxi.rb <<RUBY
+          class Zuxi < Formula
+            desc "Cross-platform offline developer toolkit"
+            homepage "https://github.com/nxrvl/zuxi"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "${BASE}/zuxi-${VERSION}-macos-arm64.tar.gz"
+                sha256 "${SHA_ARM64}"
+              else
+                url "${BASE}/zuxi-${VERSION}-macos-amd64.tar.gz"
+                sha256 "${SHA_AMD64}"
+              end
+            end
+
+            def install
+              bin.install "zuxi"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/zuxi --version")
+            end
+          end
+          RUBY
+          sed -i 's/^          //' zuxi.rb
+
+      - name: Push to Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/nxrvl/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp zuxi.rb tap/Formula/zuxi.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/zuxi.rb
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "zuxi ${VERSION}"
+          git push

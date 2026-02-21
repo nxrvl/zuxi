@@ -1,0 +1,18 @@
+name: zuxi
+arch: __ARCH__
+platform: linux
+version: __VERSION__
+maintainer: nxrvl
+description: |
+  Cross-platform offline developer toolkit.
+  A single static binary with CLI and TUI modes for JSON formatting,
+  base64 encoding, hashing, JWT decoding, HTTP requests, and more.
+homepage: https://github.com/nxrvl/zuxi
+license: MIT
+section: utils
+priority: optional
+contents:
+  - src: dist/zuxi
+    dst: /usr/local/bin/zuxi
+    file_info:
+      mode: 0755
