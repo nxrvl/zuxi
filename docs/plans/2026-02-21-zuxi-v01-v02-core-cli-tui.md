@@ -129,14 +129,14 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Create: `src/ui/layout/split.zig`
 - Create: `src/ui/themes/theme.zig`
 
-- [ ] Implement tui.zig: terminal raw mode, screen clearing, cursor movement, key input reading using Zig std lib
-- [ ] Implement list component: scrollable list with highlight for category/command navigation
-- [ ] Implement text input component: multi-line text input area for data entry
-- [ ] Implement preview component: read-only output area with scrolling for live preview
-- [ ] Implement split layout: left panel (categories) + right panel (input/output) arrangement
-- [ ] Implement theme.zig: dark and light theme color schemes, theme switching with F3
-- [ ] Write tests for key parsing, layout calculations, theme color mapping
-- [ ] Run test suite - must pass before task 10
+- [x] Implement tui.zig: terminal raw mode, screen clearing, cursor movement, key input reading using Zig std lib
+- [x] Implement list component: scrollable list with highlight for category/command navigation
+- [x] Implement text input component: multi-line text input area for data entry
+- [x] Implement preview component: read-only output area with scrolling for live preview
+- [x] Implement split layout: left panel (categories) + right panel (input/output) arrangement
+- [x] Implement theme.zig: dark and light theme color schemes, theme switching with F3
+- [x] Write tests for key parsing, layout calculations, theme color mapping
+- [x] Run test suite - must pass before task 10
 
 ### Task 10: TUI command integration
 

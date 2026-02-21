@@ -113,6 +113,7 @@ comptime {
     _ = @import("core/io.zig");
     _ = @import("core/registry.zig");
     _ = @import("core/cli.zig");
+    _ = @import("core/tui.zig");
     _ = @import("commands/json/jsonfmt.zig");
     _ = @import("commands/encoding/base64.zig");
     _ = @import("commands/encoding/strcase.zig");
@@ -121,6 +122,11 @@ comptime {
     _ = @import("commands/time/time.zig");
     _ = @import("commands/dev/uuid.zig");
     _ = @import("commands/dev/http.zig");
+    _ = @import("ui/themes/theme.zig");
+    _ = @import("ui/components/list.zig");
+    _ = @import("ui/components/textinput.zig");
+    _ = @import("ui/components/preview.zig");
+    _ = @import("ui/layout/split.zig");
 }
 
 // --- Tests ---
