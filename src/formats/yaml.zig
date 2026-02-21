@@ -143,7 +143,7 @@ fn parseSequence(ctx: *ParseContext, base_indent: usize) anyerror!Value {
 
             // Check for block scalar indicators.
             if (after_dash.len >= 1 and (after_dash[0] == '|' or after_dash[0] == '>')) {
-                const val = parseBlockScalar(ctx, after_dash[0], base_indent + 2);
+                const val = try parseBlockScalar(ctx, after_dash[0], base_indent + 2);
                 try items.append(ctx.allocator, val);
                 continue;
             }
@@ -165,7 +165,7 @@ fn parseSequence(ctx: *ParseContext, base_indent: usize) anyerror!Value {
                 const val = if (rest.len > 0) blk: {
                     // Check for block scalar.
                     if (rest[0] == '|' or rest[0] == '>') {
-                        break :blk parseBlockScalar(ctx, rest[0], base_indent + 2);
+                        break :blk try parseBlockScalar(ctx, rest[0], base_indent + 2);
                     }
                     break :blk Value{ .scalar = try ctx.allocator.dupe(u8, parseScalarValue(rest)) };
                 } else blk: {
@@ -198,7 +198,7 @@ fn parseSequence(ctx: *ParseContext, base_indent: usize) anyerror!Value {
                         ctx.pos += 1;
                         const nv = if (nv_str.len > 0) blk2: {
                             if (nv_str[0] == '|' or nv_str[0] == '>') {
-                                break :blk2 parseBlockScalar(ctx, nv_str[0], next_indent + 2);
+                                break :blk2 try parseBlockScalar(ctx, nv_str[0], next_indent + 2);
                             }
                             break :blk2 Value{ .scalar = try ctx.allocator.dupe(u8, parseScalarValue(nv_str)) };
                         } else blk2: {
@@ -254,7 +254,7 @@ fn parseMapping(ctx: *ParseContext, base_indent: usize) anyerror!Value {
         const value = if (rest.len > 0) blk: {
             // Check for block scalar indicator.
             if (rest[0] == '|' or rest[0] == '>') {
-                break :blk parseBlockScalar(ctx, rest[0], base_indent + 2);
+                break :blk try parseBlockScalar(ctx, rest[0], base_indent + 2);
             }
             // Inline flow sequence: [item1, item2].
             if (rest[0] == '[') {
@@ -280,7 +280,7 @@ fn parseMapping(ctx: *ParseContext, base_indent: usize) anyerror!Value {
 }
 
 /// Parse a block scalar (literal | or folded >).
-fn parseBlockScalar(ctx: *ParseContext, indicator: u8, min_indent: usize) Value {
+fn parseBlockScalar(ctx: *ParseContext, indicator: u8, min_indent: usize) !Value {
     var result = std.ArrayList(u8){};
 
     // Determine the actual indentation from the first content line.
@@ -292,11 +292,7 @@ fn parseBlockScalar(ctx: *ParseContext, indicator: u8, min_indent: usize) Value 
         if (std.mem.trimLeft(u8, line, " ").len == 0) {
             if (content_indent != null) {
                 // Preserve empty lines within block.
-                if (indicator == '|') {
-                    result.append(ctx.allocator, '\n') catch break;
-                } else {
-                    result.append(ctx.allocator, '\n') catch break;
-                }
+                try result.append(ctx.allocator, '\n');
             }
             ctx.pos += 1;
             continue;
@@ -316,13 +312,13 @@ fn parseBlockScalar(ctx: *ParseContext, indicator: u8, min_indent: usize) Value 
 
         if (result.items.len > 0) {
             if (indicator == '|') {
-                result.append(ctx.allocator, '\n') catch break;
+                try result.append(ctx.allocator, '\n');
             } else {
                 // Folded: replace newlines with spaces (unless blank line).
-                result.append(ctx.allocator, ' ') catch break;
+                try result.append(ctx.allocator, ' ');
             }
         }
-        result.appendSlice(ctx.allocator, text) catch break;
+        try result.appendSlice(ctx.allocator, text);
         ctx.pos += 1;
     }
 

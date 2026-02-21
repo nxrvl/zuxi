@@ -37,8 +37,10 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
     if (target) |base| {
         var buf: [130]u8 = undefined;
         const formatted = formatBase(value, base, &buf);
-        try io.writeOutput(ctx, formatted);
-        try io.writeOutput(ctx, "\n");
+        var out_buf: [131]u8 = undefined;
+        @memcpy(out_buf[0..formatted.len], formatted);
+        out_buf[formatted.len] = '\n';
+        try io.writeOutput(ctx, out_buf[0 .. formatted.len + 1]);
     } else {
         // Show all bases.
         try writeAllBases(ctx, value);
@@ -165,22 +167,27 @@ fn formatBase(value: u64, base: Base, buf: *[130]u8) []const u8 {
 /// Write all base representations with labels.
 fn writeAllBases(ctx: context.Context, value: u64) !void {
     var buf: [130]u8 = undefined;
+    var out: [600]u8 = undefined;
+    var pos: usize = 0;
 
-    try io.writeOutput(ctx, "bin: ");
-    try io.writeOutput(ctx, formatBase(value, .bin, &buf));
-    try io.writeOutput(ctx, "\n");
+    const bases = [_]struct { label: []const u8, base: Base }{
+        .{ .label = "bin: ", .base = .bin },
+        .{ .label = "oct: ", .base = .oct },
+        .{ .label = "dec: ", .base = .dec },
+        .{ .label = "hex: ", .base = .hex },
+    };
 
-    try io.writeOutput(ctx, "oct: ");
-    try io.writeOutput(ctx, formatBase(value, .oct, &buf));
-    try io.writeOutput(ctx, "\n");
+    for (bases) |entry| {
+        @memcpy(out[pos .. pos + entry.label.len], entry.label);
+        pos += entry.label.len;
+        const formatted = formatBase(value, entry.base, &buf);
+        @memcpy(out[pos .. pos + formatted.len], formatted);
+        pos += formatted.len;
+        out[pos] = '\n';
+        pos += 1;
+    }
 
-    try io.writeOutput(ctx, "dec: ");
-    try io.writeOutput(ctx, formatBase(value, .dec, &buf));
-    try io.writeOutput(ctx, "\n");
-
-    try io.writeOutput(ctx, "hex: ");
-    try io.writeOutput(ctx, formatBase(value, .hex, &buf));
-    try io.writeOutput(ctx, "\n");
+    try io.writeOutput(ctx, out[0..pos]);
 }
 
 /// Command definition for registration.
