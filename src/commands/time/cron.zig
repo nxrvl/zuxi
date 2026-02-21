@@ -52,7 +52,7 @@ fn parseField(field: []const u8, min: u6, max: u6) ?FieldSet {
             var v: u6 = min;
             while (v <= max) : (v += step) {
                 result.set(v);
-                if (v == max) break; // prevent overflow
+                if (@as(u7, v) + step > max) break;
             }
         } else if (std.mem.indexOf(u8, range_part, "-")) |dash_pos| {
             // Range: A-B
@@ -62,7 +62,7 @@ fn parseField(field: []const u8, min: u6, max: u6) ?FieldSet {
             var v: u6 = start;
             while (v <= end) : (v += step) {
                 result.set(v);
-                if (v == end) break;
+                if (@as(u7, v) + step > end) break;
             }
         } else {
             // Single value

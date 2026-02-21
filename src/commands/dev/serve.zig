@@ -112,7 +112,7 @@ pub fn execute(ctx: context.Context, _: ?[]const u8) anyerror!void {
     defer dir.close();
 
     // Start TCP server.
-    const address = std.net.Address.parseIp("0.0.0.0", args.port) catch {
+    const address = std.net.Address.parseIp("127.0.0.1", args.port) catch {
         try stderr.print("serve: invalid port {d}\n", .{args.port});
         return error.InvalidInput;
     };

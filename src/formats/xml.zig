@@ -106,7 +106,7 @@ fn parseNodes(ctx: *ParseContext) anyerror![]const Node {
             if (text.len > 0) {
                 const trimmed = std.mem.trim(u8, text, " \t\n\r");
                 if (trimmed.len > 0) {
-                    try nodes.append(ctx.allocator, .{ .text = try ctx.allocator.dupe(u8, trimmed) });
+                    try nodes.append(ctx.allocator, .{ .text = try decodeEntities(ctx.allocator, trimmed) });
                 }
             }
         }
@@ -209,7 +209,7 @@ fn parseAttribute(ctx: *ParseContext) !Attribute {
 
     return .{
         .name = name_copy,
-        .value = try ctx.allocator.dupe(u8, value),
+        .value = try decodeEntities(ctx.allocator, value),
     };
 }
 
@@ -269,6 +269,39 @@ fn parseText(ctx: *ParseContext) []const u8 {
         ctx.pos += 1;
     }
     return ctx.source[start..ctx.pos];
+}
+
+/// Decode the 5 predefined XML entities in text.
+fn decodeEntities(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
+    var result = std.ArrayList(u8){};
+    var i: usize = 0;
+    while (i < input.len) {
+        if (input[i] == '&') {
+            if (i + 3 < input.len and std.mem.startsWith(u8, input[i..], "&lt;")) {
+                try result.append(allocator, '<');
+                i += 4;
+            } else if (i + 3 < input.len and std.mem.startsWith(u8, input[i..], "&gt;")) {
+                try result.append(allocator, '>');
+                i += 4;
+            } else if (i + 4 < input.len and std.mem.startsWith(u8, input[i..], "&amp;")) {
+                try result.append(allocator, '&');
+                i += 5;
+            } else if (i + 5 < input.len and std.mem.startsWith(u8, input[i..], "&apos;")) {
+                try result.append(allocator, '\'');
+                i += 6;
+            } else if (i + 5 < input.len and std.mem.startsWith(u8, input[i..], "&quot;")) {
+                try result.append(allocator, '"');
+                i += 6;
+            } else {
+                try result.append(allocator, input[i]);
+                i += 1;
+            }
+        } else {
+            try result.append(allocator, input[i]);
+            i += 1;
+        }
+    }
+    return result.toOwnedSlice(allocator);
 }
 
 fn parseName(ctx: *ParseContext) []const u8 {
@@ -877,11 +910,31 @@ test "serialize escapes special chars in text" {
 
     const output = try serialize(std.testing.allocator, result);
     defer std.testing.allocator.free(output);
-    // The parser reads "a & b" as the entity is part of text, then serializer escapes & back.
-    // Since our parser doesn't decode entities, the text is "a &amp; b" literally, and
-    // serializer escapes the & in &amp; producing "&amp;amp;". Let's check the output contains root.
-    try std.testing.expect(std.mem.indexOf(u8, output, "<root>") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "</root>") != null);
+    // Parser decodes &amp; -> &, then serializer re-encodes & -> &amp; for correct roundtrip.
+    try std.testing.expect(std.mem.indexOf(u8, output, "<root>a &amp; b</root>") != null);
+}
+
+test "entity decoding in text" {
+    var result = try parse(std.testing.allocator, "<root>&lt;b&gt;bold&lt;/b&gt;</root>");
+    defer result.deinit();
+
+    // Verify the parser decoded entities correctly.
+    try std.testing.expect(result.nodes.len == 1);
+    try std.testing.expect(result.nodes[0] == .element);
+    const elem = result.nodes[0].element;
+    try std.testing.expect(elem.children.len == 1);
+    try std.testing.expect(elem.children[0] == .text);
+    try std.testing.expectEqualStrings("<b>bold</b>", elem.children[0].text);
+}
+
+test "entity decoding in attributes" {
+    var result = try parse(std.testing.allocator, "<root title=\"a &amp; b\" />");
+    defer result.deinit();
+
+    try std.testing.expect(result.nodes.len == 1);
+    const elem = result.nodes[0].element;
+    try std.testing.expect(elem.attributes.len == 1);
+    try std.testing.expectEqualStrings("a & b", elem.attributes[0].value);
 }
 
 test "roundtrip simple XML" {

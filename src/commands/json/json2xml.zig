@@ -32,95 +32,25 @@ pub fn execute(ctx: context.Context, _: ?[]const u8) anyerror!void {
         return error.FormatError;
     };
 
-    // Serialize to XML text.
+    // Serialize to XML text using the xml module's serializer (handles escaping).
     const parse_result = xml.ParseResult{
         .nodes = nodes,
         .declaration = null,
         .arena = arena,
     };
-    // We need to serialize without deinit-ing the arena, so use a separate allocator.
-    var ser_arena = std.heap.ArenaAllocator.init(ctx.allocator);
-    defer ser_arena.deinit();
+    const output = xml.serialize(ctx.allocator, parse_result) catch {
+        const writer = ctx.stderrWriter();
+        try writer.print("json2xml: serialization failed\n", .{});
+        return error.FormatError;
+    };
+    defer ctx.allocator.free(output);
 
-    var output_buf = std.ArrayList(u8){};
-    const aa = ser_arena.allocator();
+    // Prepend XML declaration.
+    const decl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    const full_output = try std.fmt.allocPrint(ctx.allocator, "{s}{s}", .{ decl, output });
+    defer ctx.allocator.free(full_output);
 
-    // Write XML declaration.
-    try output_buf.appendSlice(aa, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-
-    // Write nodes.
-    for (parse_result.nodes) |node| {
-        try serializeNode(aa, &output_buf, node, 0);
-    }
-
-    try io.writeOutput(ctx, output_buf.items);
-}
-
-fn serializeNode(
-    allocator: std.mem.Allocator,
-    output: *std.ArrayList(u8),
-    node: xml.Node,
-    indent: usize,
-) !void {
-    switch (node) {
-        .element => |elem| {
-            for (0..indent) |_| try output.append(allocator, ' ');
-            try output.append(allocator, '<');
-            try output.appendSlice(allocator, elem.tag);
-
-            for (elem.attributes) |attr| {
-                try output.append(allocator, ' ');
-                try output.appendSlice(allocator, attr.name);
-                try output.appendSlice(allocator, "=\"");
-                try output.appendSlice(allocator, attr.value);
-                try output.append(allocator, '"');
-            }
-
-            if (elem.self_closing) {
-                try output.appendSlice(allocator, " />\n");
-                return;
-            }
-
-            try output.append(allocator, '>');
-
-            if (elem.children.len == 1 and elem.children[0] == .text) {
-                try output.appendSlice(allocator, elem.children[0].text);
-                try output.appendSlice(allocator, "</");
-                try output.appendSlice(allocator, elem.tag);
-                try output.appendSlice(allocator, ">\n");
-                return;
-            }
-
-            if (elem.children.len > 0) {
-                try output.append(allocator, '\n');
-                for (elem.children) |child| {
-                    try serializeNode(allocator, output, child, indent + 2);
-                }
-                for (0..indent) |_| try output.append(allocator, ' ');
-            }
-
-            try output.appendSlice(allocator, "</");
-            try output.appendSlice(allocator, elem.tag);
-            try output.appendSlice(allocator, ">\n");
-        },
-        .text => |text| {
-            for (0..indent) |_| try output.append(allocator, ' ');
-            try output.appendSlice(allocator, text);
-            try output.append(allocator, '\n');
-        },
-        .comment => |comment| {
-            for (0..indent) |_| try output.append(allocator, ' ');
-            try output.appendSlice(allocator, "<!-- ");
-            try output.appendSlice(allocator, comment);
-            try output.appendSlice(allocator, " -->\n");
-        },
-        .cdata => |cdata| {
-            for (0..indent) |_| try output.append(allocator, ' ');
-            try output.appendSlice(allocator, "<![CDATA[");
-            try output.appendSlice(allocator, cdata);
-            try output.appendSlice(allocator, "]]>\n");
-        },
-    }
+    try io.writeOutput(ctx, full_output);
 }
 
 pub const command = registry.Command{

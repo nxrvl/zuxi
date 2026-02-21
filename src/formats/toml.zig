@@ -856,22 +856,21 @@ fn serializeTableEntries(
     // Then sub-tables.
     for (entries) |entry| {
         if (entry.value == .table) {
+            // Build full dotted path for nested tables
+            const full_key = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ parent_key, entry.key });
             try output.append(allocator, '\n');
             try output.append(allocator, '[');
-            try serializeKey(allocator, output, parent_key);
-            try output.append(allocator, '.');
-            try serializeKey(allocator, output, entry.key);
+            try output.appendSlice(allocator, full_key);
             try output.appendSlice(allocator, "]\n");
-            try serializeTableEntries(allocator, output, entry.value.table, entry.key);
+            try serializeTableEntries(allocator, output, entry.value.table, full_key);
         } else if (entry.value == .array) {
             const arr = entry.value.array;
             if (arr.len > 0 and arr[0] == .table) {
+                const full_key = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ parent_key, entry.key });
                 for (arr) |item| {
                     try output.append(allocator, '\n');
                     try output.appendSlice(allocator, "[[");
-                    try serializeKey(allocator, output, parent_key);
-                    try output.append(allocator, '.');
-                    try serializeKey(allocator, output, entry.key);
+                    try output.appendSlice(allocator, full_key);
                     try output.appendSlice(allocator, "]]\n");
                     if (item == .table) {
                         for (item.table) |sub_entry| {
