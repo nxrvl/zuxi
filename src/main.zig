@@ -35,7 +35,10 @@ pub fn main() !void {
     var args_buf: [128][]const u8 = undefined;
     var args_count: usize = 0;
     while (args_iter.next()) |arg| {
-        if (args_count >= args_buf.len) break;
+        if (args_count >= args_buf.len) {
+            try stderr.print("zuxi: warning: too many arguments (limit {d}), remaining args ignored\n", .{args_buf.len});
+            break;
+        }
         args_buf[args_count] = arg;
         args_count += 1;
     }

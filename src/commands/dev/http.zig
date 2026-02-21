@@ -197,7 +197,9 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
     var transfer_buf: [8192]u8 = undefined;
     const body_reader = response.reader(&transfer_buf);
     const response_body = body_reader.allocRemaining(ctx.allocator, @enumFromInt(io.max_input_size)) catch {
-        return; // No body or read error; headers already displayed.
+        const warn_writer = ctx.stderrWriter();
+        warn_writer.print("http: warning: failed to read response body\n", .{}) catch {};
+        return;
     };
     defer ctx.allocator.free(response_body);
 

@@ -123,8 +123,9 @@ fn doDecode(ctx: context.Context, token: []const u8) anyerror!void {
                     if (exp_ts < now_ts) {
                         try w.print("Status: EXPIRED (expired {d} seconds ago)\n", .{now_ts - exp_ts});
                     } else {
-                        try w.print("Status: VALID (expires in {d} seconds)\n", .{exp_ts - now_ts});
+                        try w.print("Status: NOT EXPIRED (expires in {d} seconds)\n", .{exp_ts - now_ts});
                     }
+                    try w.print("Note: signature not verified (decode only)\n", .{});
                 }
             }
         }

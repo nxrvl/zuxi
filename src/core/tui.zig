@@ -759,11 +759,38 @@ pub const TuiApp = struct {
             return;
         }
 
-        // Create pipes for stdin/stdout redirection.
+        // Create pipe for stdin redirection.
         const stdin_pipe = std.posix.pipe() catch return;
-        const stdout_pipe = std.posix.pipe() catch {
+
+        // Use a temp file for stdout capture to avoid pipe deadlock on large output.
+        // (A pipe's buffer is limited (~16KB on macOS); if a command writes more than
+        // the buffer can hold, it blocks, but we only read after execute returns.)
+        // Use cryptographic random bytes in the filename to prevent symlink attacks
+        // and prediction of temp file paths. Mode 0o600 restricts access to owner only
+        // since command output may contain sensitive data (JWT payloads, tokens, etc.).
+        var tmp_path_buf: [128]u8 = undefined;
+        var rand_bytes: [8]u8 = undefined;
+        std.crypto.random.bytes(&rand_bytes);
+        const hex_chars = "0123456789abcdef";
+        var hex_buf: [16]u8 = undefined;
+        for (rand_bytes, 0..) |b, i| {
+            hex_buf[i * 2] = hex_chars[b >> 4];
+            hex_buf[i * 2 + 1] = hex_chars[b & 0x0f];
+        }
+        const tmp_capture = std.fmt.bufPrint(&tmp_path_buf, "/tmp/.zuxi-tui-{s}.tmp", .{hex_buf[0..]}) catch {
             std.posix.close(stdin_pipe[0]);
             std.posix.close(stdin_pipe[1]);
+            return;
+        };
+        const stdout_file = std.fs.cwd().createFile(tmp_capture, .{ .mode = 0o600 }) catch {
+            std.posix.close(stdin_pipe[0]);
+            std.posix.close(stdin_pipe[1]);
+            const msg = "Error: cannot create temp file for capture";
+            @memcpy(self.output_buf[0..msg.len], msg);
+            self.output_len = msg.len;
+            self.output_lines[0] = self.output_buf[0..msg.len];
+            self.output_line_count = 1;
+            self.preview_comp.setLines(self.output_lines[0..1]);
             return;
         };
 
@@ -772,13 +799,13 @@ pub const TuiApp = struct {
         stdin_write.writeAll(input_text) catch {};
         stdin_write.close();
 
-        // Build context with pipe handles.
+        // Build context with file handles.
         const arg_list = [_][]const u8{input_text};
         const ctx = context.Context{
             .allocator = self.allocator,
             .stdin = std.fs.File{ .handle = stdin_pipe[0] },
-            .stdout = std.fs.File{ .handle = stdout_pipe[1] },
-            .stderr = std.fs.File{ .handle = stdout_pipe[1] },
+            .stdout = stdout_file,
+            .stderr = stdout_file,
             .flags = .{},
             .args = &arg_list,
         };
@@ -786,28 +813,30 @@ pub const TuiApp = struct {
         // Execute the command.
         cmd.execute(ctx, sub) catch {
             // On error, show error message in preview.
-            std.posix.close(stdout_pipe[1]);
+            stdout_file.close();
             std.posix.close(stdin_pipe[0]);
+            std.fs.cwd().deleteFile(tmp_capture) catch {};
             const msg = "Error executing command";
             @memcpy(self.output_buf[0..msg.len], msg);
             self.output_len = msg.len;
             self.output_lines[0] = self.output_buf[0..msg.len];
             self.output_line_count = 1;
             self.preview_comp.setLines(self.output_lines[0..1]);
-            // Drain and close read end.
-            const stdout_read = std.fs.File{ .handle = stdout_pipe[0] };
-            stdout_read.close();
             return;
         };
 
-        // Close pipe ends we're done with.
-        std.posix.close(stdout_pipe[1]);
+        // Close handles.
+        stdout_file.close();
         std.posix.close(stdin_pipe[0]);
 
-        // Read captured output.
-        const stdout_read = std.fs.File{ .handle = stdout_pipe[0] };
-        self.output_len = stdout_read.readAll(&self.output_buf) catch 0;
-        stdout_read.close();
+        // Read captured output from temp file.
+        if (std.fs.cwd().openFile(tmp_capture, .{})) |read_file| {
+            self.output_len = read_file.readAll(&self.output_buf) catch 0;
+            read_file.close();
+        } else |_| {
+            self.output_len = 0;
+        }
+        std.fs.cwd().deleteFile(tmp_capture) catch {};
 
         // Split into lines for the preview component.
         self.splitOutputLines();
@@ -912,10 +941,23 @@ pub const TuiApp = struct {
         try self.render(writer);
 
         while (self.running) {
-            if (try readKey(stdin)) |key| {
-                try self.handleKey(key);
-                try self.render(writer);
+            // Read raw bytes and process all keys in the buffer to avoid
+            // dropping input during paste or fast typing.
+            var input_buf: [16]u8 = undefined;
+            const n = stdin.read(&input_buf) catch |err| switch (err) {
+                error.WouldBlock => continue,
+                else => return err,
+            };
+            if (n == 0) continue;
+
+            var pos: usize = 0;
+            while (pos < n) {
+                const result = parseKey(input_buf[pos..n]);
+                if (result.len == 0) break;
+                try self.handleKey(result.key);
+                pos += result.len;
             }
+            try self.render(writer);
         }
     }
 };

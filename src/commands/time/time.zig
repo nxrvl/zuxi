@@ -176,6 +176,7 @@ pub fn parseRfc3339(input: []const u8) ?i64 {
         if (input[tz_start + 3] != ':') return null;
         const tz_minutes = std.fmt.parseInt(i64, input[tz_start + 4 .. tz_start + 6], 10) catch return null;
         if (input.len != tz_start + 6) return null; // reject trailing characters
+        if (tz_hours > 23 or tz_minutes > 59) return null; // reject out-of-range offsets
         tz_offset_seconds = (tz_hours * 3600) + (tz_minutes * 60);
         if (tz_char == '-') {
             tz_offset_seconds = -tz_offset_seconds;

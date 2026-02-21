@@ -146,6 +146,35 @@ fn isPositionalArg(arg: []const u8) bool {
     return false;
 }
 
+/// Compute Levenshtein edit distance between two strings, capped at `limit + 1`.
+/// Returns early once the minimum possible distance exceeds the limit.
+fn editDistance(a: []const u8, b: []const u8, limit: usize) usize {
+    if (a.len == 0) return @min(b.len, limit + 1);
+    if (b.len == 0) return @min(a.len, limit + 1);
+    // Lengths differ by more than limit — no need to compute.
+    if (a.len > b.len + limit or b.len > a.len + limit) return limit + 1;
+
+    var prev_row: [64]usize = undefined;
+    if (b.len >= prev_row.len) return limit + 1;
+    for (0..b.len + 1) |j| prev_row[j] = j;
+
+    for (a, 0..) |ca, i| {
+        var prev = prev_row[0];
+        prev_row[0] = i + 1;
+        var row_min: usize = prev_row[0];
+        for (b, 0..) |cb, j| {
+            const cost: usize = if (ca == cb) 0 else 1;
+            const next = @min(@min(prev_row[j + 1] + 1, prev_row[j] + 1), prev + cost);
+            prev = prev_row[j + 1];
+            prev_row[j + 1] = next;
+            row_min = @min(row_min, next);
+        }
+        // Early exit: if the entire row exceeds the limit, the final result will too.
+        if (row_min > limit) return limit + 1;
+    }
+    return prev_row[b.len];
+}
+
 /// Execute a parsed command invocation using the given registry.
 pub fn dispatch(reg: *const registry.Registry, invocation: CommandInvocation, allocator: std.mem.Allocator) !void {
     const cmd = reg.lookup(invocation.command_name) orelse {
@@ -155,11 +184,72 @@ pub fn dispatch(reg: *const registry.Registry, invocation: CommandInvocation, al
         std.process.exit(1);
     };
 
+    // If the parsed "subcommand" isn't actually a valid subcommand for this command,
+    // treat it as the first positional argument instead (e.g. `zuxi base64 hello`
+    // where "hello" is data, not a subcommand).
+    var actual_sub = invocation.subcommand;
+    var args_to_use = invocation.positional_args;
+    var merged_args_buf: [129][]const u8 = undefined;
+    if (actual_sub) |sub| {
+        var is_valid = false;
+        for (cmd.subcommands) |valid_sub| {
+            if (std.mem.eql(u8, sub, valid_sub)) {
+                is_valid = true;
+                break;
+            }
+        }
+        if (!is_valid) {
+            // Check if the word is close to a valid subcommand (likely a typo).
+            // Edit distance <= 2 catches common typos like "unixx" for "unix"
+            // or "decod" for "decode", while letting unrelated words like "test"
+            // pass through as data input for commands like `zuxi hash test`.
+            var closest_dist: usize = std.math.maxInt(usize);
+            var closest_sub: ?[]const u8 = null;
+            for (cmd.subcommands) |valid_sub| {
+                const dist = editDistance(sub, valid_sub, 2);
+                if (dist < closest_dist) {
+                    closest_dist = dist;
+                    closest_sub = valid_sub;
+                }
+            }
+
+            const is_likely_typo = closest_dist <= 2;
+
+            if (invocation.positional_args.len > 0 or is_likely_typo) {
+                // Either extra positional args exist (clearly intended as subcommand)
+                // or the word is close to a valid subcommand (likely a typo).
+                const stderr = std.fs.File.stderr().deprecatedWriter();
+                stderr.print("zuxi: '{s}' is not a valid subcommand of '{s}'", .{ sub, cmd.name }) catch {};
+                if (is_likely_typo) {
+                    if (closest_sub) |cs| {
+                        stderr.print(" (did you mean '{s}'?)", .{cs}) catch {};
+                    }
+                }
+                stderr.print("\n", .{}) catch {};
+                if (cmd.subcommands.len > 0 and !is_likely_typo) {
+                    stderr.print("Available subcommands:", .{}) catch {};
+                    for (cmd.subcommands) |valid_sub| {
+                        stderr.print(" {s}", .{valid_sub}) catch {};
+                    }
+                    stderr.print("\n", .{}) catch {};
+                }
+                stderr.print("Run 'zuxi {s} --help' for usage.\n", .{cmd.name}) catch {};
+                std.process.exit(1);
+            }
+            // No extra positional args and not a close match to any subcommand —
+            // treat unknown word as data input.
+            // E.g. `zuxi hash test` → hash "test" with default algorithm.
+            merged_args_buf[0] = sub;
+            args_to_use = merged_args_buf[0..1];
+            actual_sub = null;
+        }
+    }
+
     var ctx = context.Context.initDefault(allocator);
     ctx.flags = invocation.flags;
-    ctx.args = invocation.positional_args;
+    ctx.args = args_to_use;
 
-    try cmd.execute(ctx, invocation.subcommand);
+    try cmd.execute(ctx, actual_sub);
 }
 
 /// Print version string.
@@ -511,4 +601,45 @@ test "isPositionalArg detects data-like strings" {
     try std.testing.expect(isPositionalArg("file.txt"));
     try std.testing.expect(!isPositionalArg("encode"));
     try std.testing.expect(!isPositionalArg("sha256"));
+}
+
+test "editDistance identical strings" {
+    try std.testing.expectEqual(@as(usize, 0), editDistance("unix", "unix", 2));
+    try std.testing.expectEqual(@as(usize, 0), editDistance("", "", 2));
+}
+
+test "editDistance single character changes" {
+    // Substitution
+    try std.testing.expectEqual(@as(usize, 1), editDistance("unix", "unax", 2));
+    // Insertion
+    try std.testing.expectEqual(@as(usize, 1), editDistance("decod", "decode", 2));
+    // Deletion
+    try std.testing.expectEqual(@as(usize, 1), editDistance("decode", "decod", 2));
+    // Extra character
+    try std.testing.expectEqual(@as(usize, 1), editDistance("unixx", "unix", 2));
+}
+
+test "editDistance above limit returns limit + 1" {
+    // "test" vs "sha256" — very different
+    try std.testing.expect(editDistance("test", "sha256", 2) > 2);
+    // "test" vs "md5" — different enough
+    try std.testing.expect(editDistance("test", "md5", 2) > 2);
+    // "hello" vs "encode" — different
+    try std.testing.expect(editDistance("hello", "encode", 2) > 2);
+}
+
+test "editDistance catches common typos" {
+    // "unixx" is 1 edit from "unix"
+    try std.testing.expect(editDistance("unixx", "unix", 2) <= 2);
+    // "decod" is 1 edit from "decode"
+    try std.testing.expect(editDistance("decod", "decode", 2) <= 2);
+    // "sha254" is 1 edit from "sha256"
+    try std.testing.expect(editDistance("sha254", "sha256", 2) <= 2);
+    // "encde" is 1 edit from "encode"
+    try std.testing.expect(editDistance("encde", "encode", 2) <= 2);
+}
+
+test "editDistance empty strings" {
+    try std.testing.expectEqual(@as(usize, 3), editDistance("", "abc", 5));
+    try std.testing.expectEqual(@as(usize, 3), editDistance("abc", "", 5));
 }
