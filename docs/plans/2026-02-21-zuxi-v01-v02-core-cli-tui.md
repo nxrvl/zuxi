@@ -101,11 +101,11 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Create: `src/commands/time/time.zig`
 - Create: `src/commands/dev/uuid.zig`
 
-- [ ] Implement time: unix-to-rfc3339, rfc3339-to-unix, show current time in UTC and local
-- [ ] Implement uuid: generate (v4 random), decode (extract version, variant, timestamp if v1)
-- [ ] Register both commands in the registry
-- [ ] Write tests for time (known conversions) and uuid (format validation, generation uniqueness)
-- [ ] Run test suite - must pass before task 8
+- [x] Implement time: unix-to-rfc3339, rfc3339-to-unix, show current time in UTC and local
+- [x] Implement uuid: generate (v4 random), decode (extract version, variant, timestamp if v1)
+- [x] Register both commands in the registry
+- [x] Write tests for time (known conversions) and uuid (format validation, generation uniqueness)
+- [x] Run test suite - must pass before task 8
 
 ### Task 8: http command
 

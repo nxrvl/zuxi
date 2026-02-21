@@ -9,6 +9,8 @@ const base64_cmd = @import("commands/encoding/base64.zig");
 const strcase_cmd = @import("commands/encoding/strcase.zig");
 const hash_cmd = @import("commands/security/hash.zig");
 const jwt_cmd = @import("commands/security/jwt.zig");
+const time_cmd = @import("commands/time/time.zig");
+const uuid_cmd = @import("commands/dev/uuid.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -46,6 +48,8 @@ pub fn main() !void {
         strcase_cmd.command,
         hash_cmd.command,
         jwt_cmd.command,
+        time_cmd.command,
+        uuid_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -112,6 +116,8 @@ comptime {
     _ = @import("commands/encoding/strcase.zig");
     _ = @import("commands/security/hash.zig");
     _ = @import("commands/security/jwt.zig");
+    _ = @import("commands/time/time.zig");
+    _ = @import("commands/dev/uuid.zig");
 }
 
 // --- Tests ---
