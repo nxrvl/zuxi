@@ -13,6 +13,9 @@ const jwt_cmd = @import("commands/security/jwt.zig");
 const time_cmd = @import("commands/time/time.zig");
 const uuid_cmd = @import("commands/dev/uuid.zig");
 const http_cmd = @import("commands/dev/http.zig");
+const count_cmd = @import("commands/encoding/count.zig");
+const slug_cmd = @import("commands/encoding/slug.zig");
+const urlencode_cmd = @import("commands/encoding/urlencode.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -56,6 +59,9 @@ pub fn main() !void {
         time_cmd.command,
         uuid_cmd.command,
         http_cmd.command,
+        count_cmd.command,
+        slug_cmd.command,
+        urlencode_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -132,6 +138,9 @@ comptime {
     _ = @import("commands/time/time.zig");
     _ = @import("commands/dev/uuid.zig");
     _ = @import("commands/dev/http.zig");
+    _ = @import("commands/encoding/count.zig");
+    _ = @import("commands/encoding/slug.zig");
+    _ = @import("commands/encoding/urlencode.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

@@ -60,18 +60,18 @@ other formatted outputs.
 - Create: `src/commands/encoding/urlencode.zig`
 - Modify: `src/main.zig`
 
-- [ ] count: count characters, words, lines from input text
+- [x] count: count characters, words, lines from input text
   - Default (no subcommand): show all stats
   - Input from positional arg or stdin
-- [ ] slug: convert text to URL-friendly slug
+- [x] slug: convert text to URL-friendly slug
   - Lowercase, replace spaces/special chars with hyphens, strip non-ASCII
   - Basic transliteration for Cyrillic characters
-- [ ] urlencode: URL percent-encoding
+- [x] urlencode: URL percent-encoding
   - Subcommands: encode (default), decode
   - RFC 3986 compliant encoding
-- [ ] Register all 3 commands in main.zig
-- [ ] Write tests for all 3 commands
-- [ ] Run project test suite - must pass before task 4
+- [x] Register all 3 commands in main.zig
+- [x] Write tests for all 3 commands
+- [x] Run project test suite - must pass before task 4
 
 ### Task 4: numbers (base converter) + hmac
 
