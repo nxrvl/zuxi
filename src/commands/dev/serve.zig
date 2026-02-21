@@ -78,6 +78,9 @@ fn sanitizePath(url_path: []const u8) ?[]const u8 {
         path = path[1..];
     }
 
+    // Reject percent-encoded characters to prevent traversal bypass via %2e%2e.
+    if (std.mem.indexOfScalar(u8, path, '%') != null) return null;
+
     // Reject backslashes to prevent Windows path traversal (e.g. /..\..\secret).
     if (std.mem.indexOfScalar(u8, path, '\\') != null) return null;
 

@@ -442,7 +442,7 @@ fn parseFlowEntry(allocator: std.mem.Allocator, entries: *std.ArrayList(MapEntry
     const v = std.mem.trim(u8, trimmed[colon_pos + sep_len ..], " ");
     try entries.append(allocator, .{
         .key = try allocator.dupe(u8, unquoteKey(k)),
-        .value = .{ .scalar = try allocator.dupe(u8, parseScalarValue(v)) },
+        .value = try parseFlowValue(allocator, v),
     });
 }
 
@@ -568,25 +568,46 @@ fn parseScalarValue(raw: []const u8) []const u8 {
     const trimmed = std.mem.trimRight(u8, raw, " \t");
     if (trimmed.len == 0) return trimmed;
 
-    // Remove surrounding quotes.
-    if (trimmed.len >= 2) {
-        if ((trimmed[0] == '"' and trimmed[trimmed.len - 1] == '"') or
-            (trimmed[0] == '\'' and trimmed[trimmed.len - 1] == '\''))
+    // Strip inline comment first (quote-aware: skip over quoted strings).
+    var effective = trimmed;
+    {
+        var i: usize = 0;
+        while (i < effective.len) {
+            const c = effective[i];
+            if (c == '"') {
+                // Skip double-quoted string.
+                i += 1;
+                while (i < effective.len and effective[i] != '"') : (i += 1) {
+                    if (effective[i] == '\\' and i + 1 < effective.len) i += 1;
+                }
+                if (i < effective.len) i += 1; // skip closing quote
+                continue;
+            }
+            if (c == '\'') {
+                // Skip single-quoted string.
+                i += 1;
+                while (i < effective.len and effective[i] != '\'') : (i += 1) {}
+                if (i < effective.len) i += 1; // skip closing quote
+                continue;
+            }
+            if (c == '#' and i > 0 and effective[i - 1] == ' ') {
+                effective = std.mem.trimRight(u8, effective[0 .. i - 1], " \t");
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    // Then remove surrounding quotes.
+    if (effective.len >= 2) {
+        if ((effective[0] == '"' and effective[effective.len - 1] == '"') or
+            (effective[0] == '\'' and effective[effective.len - 1] == '\''))
         {
-            return trimmed[1 .. trimmed.len - 1];
+            return effective[1 .. effective.len - 1];
         }
     }
 
-    // Strip inline comment (unquoted # preceded by space).
-    var i: usize = 0;
-    while (i < trimmed.len) {
-        if (trimmed[i] == '#' and i > 0 and trimmed[i - 1] == ' ') {
-            return std.mem.trimRight(u8, trimmed[0 .. i - 1], " \t");
-        }
-        i += 1;
-    }
-
-    return trimmed;
+    return effective;
 }
 
 // --- Serializer ---
