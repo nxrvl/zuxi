@@ -43,6 +43,9 @@ const htmlfmt_cmd = @import("commands/docs/htmlfmt.zig");
 const gqlquery_cmd = @import("commands/docs/gqlquery.zig");
 const urls_cmd = @import("commands/dev/urls.zig");
 const ports_cmd = @import("commands/dev/ports.zig");
+const envfile_cmd = @import("commands/dev/envfile.zig");
+const serve_cmd = @import("commands/dev/serve.zig");
+const scaffold_cmd = @import("commands/dev/scaffold.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -116,6 +119,9 @@ pub fn main() !void {
         gqlquery_cmd.command,
         urls_cmd.command,
         ports_cmd.command,
+        envfile_cmd.command,
+        serve_cmd.command,
+        scaffold_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -226,6 +232,9 @@ comptime {
     _ = @import("commands/docs/gqlquery.zig");
     _ = @import("commands/dev/urls.zig");
     _ = @import("commands/dev/ports.zig");
+    _ = @import("commands/dev/envfile.zig");
+    _ = @import("commands/dev/serve.zig");
+    _ = @import("commands/dev/scaffold.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

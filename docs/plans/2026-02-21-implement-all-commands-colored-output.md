@@ -252,19 +252,19 @@ other formatted outputs.
 - Create: `src/commands/dev/scaffold.zig`
 - Modify: `src/main.zig`
 
-- [ ] envfile: .env file tools
+- [x] envfile: .env file tools
   - Subcommands: validate (check syntax), to-json (convert to JSON), to-yaml (convert to YAML)
   - Parse KEY=VALUE format, handle comments, quoted values
-- [ ] serve: simple static HTTP file server
+- [x] serve: simple static HTTP file server
   - Serve files from current directory or --dir path
   - Default port 8080, configurable via --port
   - Log requests to stderr
-- [ ] scaffold: micro-template generator
+- [x] scaffold: micro-template generator
   - Subcommands: env (generate .env template), compose (docker-compose.yml template)
   - Basic templates with common structure
-- [ ] Register commands
-- [ ] Write tests (envfile parsing, scaffold output verification)
-- [ ] Run project test suite - must pass before task 15
+- [x] Register commands
+- [x] Write tests (envfile parsing, scaffold output verification)
+- [x] Run project test suite - must pass before task 15
 
 ### Task 15: Generator tools - gitignore, license, iban
 
