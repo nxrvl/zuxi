@@ -80,16 +80,16 @@ other formatted outputs.
 - Create: `src/commands/security/hmac.zig`
 - Modify: `src/main.zig`
 
-- [ ] numbers: convert between binary, octal, decimal, hex
+- [x] numbers: convert between binary, octal, decimal, hex
   - Auto-detect input base from prefix (0x, 0b, 0o) or assume decimal
   - Subcommands: bin, oct, dec, hex, all (default - show all bases)
-- [ ] hmac: compute HMAC signatures
+- [x] hmac: compute HMAC signatures
   - Subcommands: sha256 (default), sha512
   - Flag: --key <secret> (passed as positional arg after data)
   - Input from positional arg or stdin
-- [ ] Register commands in main.zig
-- [ ] Write tests with known values
-- [ ] Run project test suite - must pass before task 5
+- [x] Register commands in main.zig
+- [x] Write tests with known values
+- [x] Run project test suite - must pass before task 5
 
 ### Task 5: Time tools - cron parser
 
