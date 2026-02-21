@@ -71,7 +71,15 @@ fn sanitizePath(url_path: []const u8) ?[]const u8 {
     // Must start with /
     if (url_path.len == 0 or url_path[0] != '/') return null;
 
-    const path = url_path[1..]; // Strip leading /
+    // Strip ALL leading slashes to prevent absolute-path escape
+    // (e.g. //etc/passwd -> /etc/passwd which openat treats as absolute).
+    var path = url_path[1..];
+    while (path.len > 0 and path[0] == '/') {
+        path = path[1..];
+    }
+
+    // Reject backslashes to prevent Windows path traversal (e.g. /..\..\secret).
+    if (std.mem.indexOfScalar(u8, path, '\\') != null) return null;
 
     // Check each path segment for ".." traversal.
     var it = std.mem.splitScalar(u8, path, '/');
@@ -188,9 +196,9 @@ fn handleConnection(stream: std.net.Stream, dir: std.fs.Dir, stderr: anytype, al
 /// Send an HTTP response.
 fn sendResponse(stream: std.net.Stream, status: []const u8, content_type: []const u8, body: []const u8) !void {
     var header_buf: [512]u8 = undefined;
-    const header = std.fmt.bufPrint(&header_buf, "HTTP/1.1 {s}\r\nContent-Type: {s}\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", .{ status, content_type, body.len }) catch return;
-    _ = stream.write(header) catch return;
-    _ = stream.write(body) catch return;
+    const header = std.fmt.bufPrint(&header_buf, "HTTP/1.1 {s}\r\nContent-Type: {s}\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", .{ status, content_type, body.len }) catch return error.IoError;
+    try stream.writeAll(header);
+    try stream.writeAll(body);
 }
 
 /// Command definition for registration.
@@ -275,6 +283,20 @@ test "sanitizePath rejects traversal" {
     try std.testing.expect(sanitizePath("/../etc/passwd") == null);
     try std.testing.expect(sanitizePath("/..") == null);
     try std.testing.expect(sanitizePath("/foo/../bar") == null);
+}
+
+test "sanitizePath rejects backslash traversal" {
+    try std.testing.expect(sanitizePath("/..\\..\\secret") == null);
+    try std.testing.expect(sanitizePath("/foo\\bar") == null);
+    try std.testing.expect(sanitizePath("/path\\to\\file") == null);
+}
+
+test "sanitizePath rejects absolute path escape via double slashes" {
+    // //etc/passwd must not become /etc/passwd (absolute path).
+    try std.testing.expectEqualStrings("etc/passwd", sanitizePath("//etc/passwd").?);
+    try std.testing.expectEqualStrings("index.html", sanitizePath("//").?);
+    try std.testing.expectEqualStrings("index.html", sanitizePath("///").?);
+    try std.testing.expectEqualStrings("foo", sanitizePath("///foo").?);
 }
 
 test "sanitizePath rejects invalid" {

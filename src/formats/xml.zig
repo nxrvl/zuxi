@@ -172,7 +172,13 @@ fn parseElement(ctx: *ParseContext) anyerror!Node {
         skipWhitespace(ctx);
         if (ctx.pos < ctx.source.len and ctx.source[ctx.pos] == '>') {
             ctx.pos += 1;
+        } else {
+            // Missing '>' in closing tag - malformed XML.
+            return error.InvalidXml;
         }
+    } else {
+        // Missing closing tag - malformed XML.
+        return error.InvalidXml;
     }
 
     return .{ .element = .{
@@ -190,25 +196,26 @@ fn parseAttribute(ctx: *ParseContext) !Attribute {
 
     skipWhitespace(ctx);
 
-    // Expect '='
-    if (ctx.pos < ctx.source.len and ctx.source[ctx.pos] == '=') {
-        ctx.pos += 1;
+    // Require '=' for XML attributes.
+    if (ctx.pos >= ctx.source.len or ctx.source[ctx.pos] != '=') {
+        return error.InvalidXml;
     }
+    ctx.pos += 1;
 
     skipWhitespace(ctx);
 
-    // Parse value (quoted string).
-    var value: []const u8 = "";
-    if (ctx.pos < ctx.source.len and (ctx.source[ctx.pos] == '"' or ctx.source[ctx.pos] == '\'')) {
-        const quote = ctx.source[ctx.pos];
-        ctx.pos += 1;
-        const val_start = ctx.pos;
-        while (ctx.pos < ctx.source.len and ctx.source[ctx.pos] != quote) {
-            ctx.pos += 1;
-        }
-        value = ctx.source[val_start..ctx.pos];
-        if (ctx.pos < ctx.source.len) ctx.pos += 1; // Skip closing quote.
+    // Parse value (quoted string) - XML requires attribute values to be quoted.
+    if (ctx.pos >= ctx.source.len or (ctx.source[ctx.pos] != '"' and ctx.source[ctx.pos] != '\'')) {
+        return error.InvalidXml;
     }
+    const quote = ctx.source[ctx.pos];
+    ctx.pos += 1;
+    const val_start = ctx.pos;
+    while (ctx.pos < ctx.source.len and ctx.source[ctx.pos] != quote) {
+        ctx.pos += 1;
+    }
+    const value = ctx.source[val_start..ctx.pos];
+    if (ctx.pos < ctx.source.len) ctx.pos += 1; // Skip closing quote.
 
     return .{
         .name = name_copy,

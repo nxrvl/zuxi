@@ -522,7 +522,8 @@ fn parseBasicString(ctx: *ParseContext) ![]const u8 {
         try result.append(ctx.allocator, c);
         ctx.pos += 1;
     }
-    return try result.toOwnedSlice(ctx.allocator);
+    // Unterminated basic string.
+    return error.InvalidInput;
 }
 
 /// Parse a literal string (single-quoted, no escapes).
@@ -532,8 +533,9 @@ fn parseLiteralString(ctx: *ParseContext) ![]const u8 {
     while (ctx.pos < ctx.source.len and ctx.source[ctx.pos] != '\'') {
         ctx.pos += 1;
     }
+    if (ctx.pos >= ctx.source.len) return error.InvalidInput; // Unterminated literal string.
     const s = try ctx.allocator.dupe(u8, ctx.source[start..ctx.pos]);
-    if (ctx.pos < ctx.source.len) ctx.pos += 1; // Skip closing '
+    ctx.pos += 1; // Skip closing '
     return s;
 }
 
@@ -582,7 +584,8 @@ fn parseMultiLineBasicString(ctx: *ParseContext) ![]const u8 {
         try result.append(ctx.allocator, ctx.source[ctx.pos]);
         ctx.pos += 1;
     }
-    return try result.toOwnedSlice(ctx.allocator);
+    // Unterminated multi-line basic string.
+    return error.InvalidInput;
 }
 
 /// Parse a multi-line literal string (''' ... ''').
@@ -604,7 +607,8 @@ fn parseMultiLineLiteralString(ctx: *ParseContext) ![]const u8 {
         }
         ctx.pos += 1;
     }
-    return try ctx.allocator.dupe(u8, ctx.source[start..ctx.pos]);
+    // Unterminated multi-line literal string.
+    return error.InvalidInput;
 }
 
 /// Parse an array value: [val1, val2, ...]
@@ -639,7 +643,8 @@ fn parseArray(ctx: *ParseContext) anyerror!Value {
         }
     }
 
-    return .{ .array = try items.toOwnedSlice(ctx.allocator) };
+    // Unterminated array (no closing ']' found).
+    return error.InvalidInput;
 }
 
 /// Parse an inline table: {key = val, key2 = val2}
@@ -675,7 +680,8 @@ fn parseInlineTable(ctx: *ParseContext) anyerror!Value {
         }
     }
 
-    return .{ .table = try entries.toOwnedSlice(ctx.allocator) };
+    // Unterminated inline table (no closing '}' found).
+    return error.InvalidInput;
 }
 
 /// Parse a number (integer or float) or datetime.
@@ -727,8 +733,8 @@ fn parseNumberOrDatetime(ctx: *ParseContext) !Value {
         return .{ .float = f };
     } else |_| {}
 
-    // Fallback: treat as string.
-    return .{ .string = try ctx.allocator.dupe(u8, raw) };
+    // Invalid bare value - TOML requires strings to be quoted.
+    return error.InvalidInput;
 }
 
 fn isDatetime(s: []const u8) bool {

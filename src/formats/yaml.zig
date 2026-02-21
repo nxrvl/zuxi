@@ -335,20 +335,36 @@ fn parseFlowSequence(allocator: std.mem.Allocator, text: []const u8) !Value {
     var items = std.ArrayList(Value){};
     if (content.len == 0) return .{ .sequence = try items.toOwnedSlice(allocator) };
 
-    // Split by commas (respecting nesting).
+    // Split by commas (respecting nesting and quoted strings).
     var depth: usize = 0;
+    var in_double_quote = false;
+    var in_single_quote = false;
     var seg_start: usize = 0;
-    for (content, 0..) |c, i| {
-        if (c == '[' or c == '{') depth += 1;
-        if (c == ']' or c == '}') {
-            if (depth > 0) depth -= 1;
-        }
-        if (c == ',' and depth == 0) {
-            const seg = std.mem.trim(u8, content[seg_start..i], " ");
-            if (seg.len > 0) {
-                try items.append(allocator, try parseFlowValue(allocator, seg));
+    var i: usize = 0;
+    while (i < content.len) : (i += 1) {
+        const c = content[i];
+        if (!in_single_quote and !in_double_quote and c == '"') {
+            in_double_quote = true;
+        } else if (in_double_quote and c == '\\' and i + 1 < content.len) {
+            i += 1; // Skip escaped character.
+        } else if (in_double_quote and c == '"') {
+            in_double_quote = false;
+        } else if (!in_double_quote and !in_single_quote and c == '\'') {
+            in_single_quote = true;
+        } else if (in_single_quote and c == '\'') {
+            in_single_quote = false;
+        } else if (!in_double_quote and !in_single_quote) {
+            if (c == '[' or c == '{') depth += 1;
+            if (c == ']' or c == '}') {
+                if (depth > 0) depth -= 1;
             }
-            seg_start = i + 1;
+            if (c == ',' and depth == 0) {
+                const seg = std.mem.trim(u8, content[seg_start..i], " ");
+                if (seg.len > 0) {
+                    try items.append(allocator, try parseFlowValue(allocator, seg));
+                }
+                seg_start = i + 1;
+            }
         }
     }
     const last = std.mem.trim(u8, content[seg_start..], " ");
@@ -380,15 +396,31 @@ fn parseFlowMapping(allocator: std.mem.Allocator, text: []const u8) !Value {
     if (content.len == 0) return .{ .mapping = try entries.toOwnedSlice(allocator) };
 
     var depth: usize = 0;
+    var in_double_quote = false;
+    var in_single_quote = false;
     var seg_start: usize = 0;
-    for (content, 0..) |c, i| {
-        if (c == '[' or c == '{') depth += 1;
-        if (c == ']' or c == '}') {
-            if (depth > 0) depth -= 1;
-        }
-        if (c == ',' and depth == 0) {
-            try parseFlowEntry(allocator, &entries, content[seg_start..i]);
-            seg_start = i + 1;
+    var i: usize = 0;
+    while (i < content.len) : (i += 1) {
+        const c = content[i];
+        if (!in_single_quote and !in_double_quote and c == '"') {
+            in_double_quote = true;
+        } else if (in_double_quote and c == '\\' and i + 1 < content.len) {
+            i += 1; // Skip escaped character.
+        } else if (in_double_quote and c == '"') {
+            in_double_quote = false;
+        } else if (!in_double_quote and !in_single_quote and c == '\'') {
+            in_single_quote = true;
+        } else if (in_single_quote and c == '\'') {
+            in_single_quote = false;
+        } else if (!in_double_quote and !in_single_quote) {
+            if (c == '[' or c == '{') depth += 1;
+            if (c == ']' or c == '}') {
+                if (depth > 0) depth -= 1;
+            }
+            if (c == ',' and depth == 0) {
+                try parseFlowEntry(allocator, &entries, content[seg_start..i]);
+                seg_start = i + 1;
+            }
         }
     }
     try parseFlowEntry(allocator, &entries, content[seg_start..]);
@@ -414,11 +446,27 @@ fn parseFlowEntry(allocator: std.mem.Allocator, entries: *std.ArrayList(MapEntry
 
 fn findMatchingBracket(text: []const u8) ?usize {
     var depth: usize = 0;
-    for (text, 0..) |c, i| {
-        if (c == '[') depth += 1;
-        if (c == ']') {
-            depth -= 1;
-            if (depth == 0) return i;
+    var in_double_quote = false;
+    var in_single_quote = false;
+    var i: usize = 0;
+    while (i < text.len) : (i += 1) {
+        const c = text[i];
+        if (!in_single_quote and !in_double_quote and c == '"') {
+            in_double_quote = true;
+        } else if (in_double_quote and c == '\\' and i + 1 < text.len) {
+            i += 1; // Skip escaped character.
+        } else if (in_double_quote and c == '"') {
+            in_double_quote = false;
+        } else if (!in_double_quote and !in_single_quote and c == '\'') {
+            in_single_quote = true;
+        } else if (in_single_quote and c == '\'') {
+            in_single_quote = false;
+        } else if (!in_double_quote and !in_single_quote) {
+            if (c == '[') depth += 1;
+            if (c == ']') {
+                depth -= 1;
+                if (depth == 0) return i;
+            }
         }
     }
     return null;
@@ -426,11 +474,27 @@ fn findMatchingBracket(text: []const u8) ?usize {
 
 fn findMatchingBrace(text: []const u8) ?usize {
     var depth: usize = 0;
-    for (text, 0..) |c, i| {
-        if (c == '{') depth += 1;
-        if (c == '}') {
-            depth -= 1;
-            if (depth == 0) return i;
+    var in_double_quote = false;
+    var in_single_quote = false;
+    var i: usize = 0;
+    while (i < text.len) : (i += 1) {
+        const c = text[i];
+        if (!in_single_quote and !in_double_quote and c == '"') {
+            in_double_quote = true;
+        } else if (in_double_quote and c == '\\' and i + 1 < text.len) {
+            i += 1; // Skip escaped character.
+        } else if (in_double_quote and c == '"') {
+            in_double_quote = false;
+        } else if (!in_double_quote and !in_single_quote and c == '\'') {
+            in_single_quote = true;
+        } else if (in_single_quote and c == '\'') {
+            in_single_quote = false;
+        } else if (!in_double_quote and !in_single_quote) {
+            if (c == '{') depth += 1;
+            if (c == '}') {
+                depth -= 1;
+                if (depth == 0) return i;
+            }
         }
     }
     return null;
