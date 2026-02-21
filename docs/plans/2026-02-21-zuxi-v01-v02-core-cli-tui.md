@@ -77,11 +77,11 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Create: `src/commands/encoding/base64.zig`
 - Create: `src/commands/encoding/strcase.zig`
 
-- [ ] Implement base64 encode/decode subcommands using Zig std lib
-- [ ] Implement strcase with subcommands: snake, camel, pascal, kebab, upper
-- [ ] Register both commands in the registry
-- [ ] Write tests for base64 (encode, decode, invalid input) and strcase (all case conversions)
-- [ ] Run test suite - must pass before task 6
+- [x] Implement base64 encode/decode subcommands using Zig std lib
+- [x] Implement strcase with subcommands: snake, camel, pascal, kebab, upper
+- [x] Register both commands in the registry
+- [x] Write tests for base64 (encode, decode, invalid input) and strcase (all case conversions)
+- [x] Run test suite - must pass before task 6
 
 ### Task 6: Security commands - hash, jwt
 

@@ -5,6 +5,8 @@ const registry = @import("core/registry.zig");
 const context = @import("core/context.zig");
 const errors = @import("core/errors.zig");
 const jsonfmt = @import("commands/json/jsonfmt.zig");
+const base64_cmd = @import("commands/encoding/base64.zig");
+const strcase_cmd = @import("commands/encoding/strcase.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -36,10 +38,17 @@ pub fn main() !void {
     const reg = registry.getGlobalRegistry();
 
     // Register commands.
-    reg.register(jsonfmt.command) catch {
-        try stderr.print("zuxi: failed to register commands\n", .{});
-        std.process.exit(1);
+    const commands_to_register = [_]registry.Command{
+        jsonfmt.command,
+        base64_cmd.command,
+        strcase_cmd.command,
     };
+    for (commands_to_register) |cmd| {
+        reg.register(cmd) catch {
+            try stderr.print("zuxi: failed to register commands\n", .{});
+            std.process.exit(1);
+        };
+    }
 
     var positional_buf: [128][]const u8 = undefined;
     const parse_result = cli.parseArgs(args_slice, &positional_buf) catch |err| {
@@ -95,6 +104,8 @@ comptime {
     _ = @import("core/registry.zig");
     _ = @import("core/cli.zig");
     _ = @import("commands/json/jsonfmt.zig");
+    _ = @import("commands/encoding/base64.zig");
+    _ = @import("commands/encoding/strcase.zig");
 }
 
 // --- Tests ---
