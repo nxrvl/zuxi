@@ -153,13 +153,13 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 
 ### Task 11: Final verification and documentation
 
-- [ ] Manual test: `echo '{"a":1}' | zuxi jsonfmt` produces formatted JSON
-- [ ] Manual test: `zuxi base64 encode "hello"` outputs `aGVsbG8=`
-- [ ] Manual test: `zuxi hash sha256 "test"` outputs known hash
-- [ ] Manual test: `zuxi uuid generate` produces valid UUID
-- [ ] Manual test: `zuxi` without args launches TUI
-- [ ] Run full test suite: `zig build test`
-- [ ] Verify binary size is under 15 MB
-- [ ] Verify startup time is under 50ms
-- [ ] Update README.md with usage examples and command reference
-- [ ] Move this plan to `docs/plans/completed/`
+- [x] Manual test: `echo '{"a":1}' | zuxi jsonfmt` produces formatted JSON
+- [x] Manual test: `zuxi base64 encode "hello"` outputs `aGVsbG8=`
+- [x] Manual test: `zuxi hash sha256 "test"` outputs known hash
+- [x] Manual test: `zuxi uuid generate` produces valid UUID
+- [x] Manual test: `zuxi` without args launches TUI
+- [x] Run full test suite: `zig build test`
+- [x] Verify binary size is under 15 MB
+- [x] Verify startup time is under 50ms
+- [x] Update README.md with usage examples and command reference
+- [x] Move this plan to `docs/plans/completed/`
