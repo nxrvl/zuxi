@@ -154,26 +154,34 @@ pub fn parseRfc3339(input: []const u8) ?i64 {
     if (minutes > 59) return null;
     if (seconds > 59) return null;
 
-    // Parse timezone offset
-    var tz_offset_seconds: i64 = 0;
-    if (input.len >= 20) {
-        const tz_char = input[19];
-        if (tz_char == 'Z' or tz_char == 'z') {
-            if (input.len != 20) return null; // reject trailing characters
-            tz_offset_seconds = 0;
-        } else if (tz_char == '+' or tz_char == '-') {
-            if (input.len < 25) return null;
-            const tz_hours = std.fmt.parseInt(i64, input[20..22], 10) catch return null;
-            if (input[22] != ':') return null;
-            const tz_minutes = std.fmt.parseInt(i64, input[23..25], 10) catch return null;
-            if (input.len != 25) return null; // reject trailing characters
-            tz_offset_seconds = (tz_hours * 3600) + (tz_minutes * 60);
-            if (tz_char == '-') {
-                tz_offset_seconds = -tz_offset_seconds;
-            }
-        } else {
-            return null;
+    // Parse timezone offset (skip optional fractional seconds first)
+    var tz_start: usize = 19;
+    if (input.len > 19 and input[19] == '.') {
+        tz_start = 20;
+        while (tz_start < input.len and std.ascii.isDigit(input[tz_start])) {
+            tz_start += 1;
         }
+        if (tz_start == 20) return null; // '.' with no digits after it
+    }
+    if (tz_start >= input.len) return null;
+
+    var tz_offset_seconds: i64 = 0;
+    const tz_char = input[tz_start];
+    if (tz_char == 'Z' or tz_char == 'z') {
+        if (input.len != tz_start + 1) return null; // reject trailing characters
+        tz_offset_seconds = 0;
+    } else if (tz_char == '+' or tz_char == '-') {
+        if (input.len < tz_start + 6) return null;
+        const tz_hours = std.fmt.parseInt(i64, input[tz_start + 1 .. tz_start + 3], 10) catch return null;
+        if (input[tz_start + 3] != ':') return null;
+        const tz_minutes = std.fmt.parseInt(i64, input[tz_start + 4 .. tz_start + 6], 10) catch return null;
+        if (input.len != tz_start + 6) return null; // reject trailing characters
+        tz_offset_seconds = (tz_hours * 3600) + (tz_minutes * 60);
+        if (tz_char == '-') {
+            tz_offset_seconds = -tz_offset_seconds;
+        }
+    } else {
+        return null;
     }
 
     // Convert date to days since epoch
@@ -307,6 +315,14 @@ test "time rfc3339 with negative offset" {
     try std.testing.expectEqualStrings("1705314600", trimmed);
 }
 
+test "time rfc3339 with fractional seconds" {
+    // Fractional seconds are truncated (floor), same unix timestamp
+    const output = try execWithInput("2024-01-15T10:30:00.123Z", "rfc3339");
+    defer std.testing.allocator.free(output);
+    const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
+    try std.testing.expectEqualStrings("1705314600", trimmed);
+}
+
 test "time roundtrip: unix -> rfc3339 -> unix" {
     // Convert 1705314600 via unix subcommand (outputs rfc3339)
     const rfc_output = try execWithInput("1705314600", "unix");
@@ -365,4 +381,14 @@ test "parseRfc3339 known values" {
     // Trailing garbage must be rejected
     try std.testing.expectEqual(@as(?i64, null), parseRfc3339("2024-01-15T10:30:00Zgarbage"));
     try std.testing.expectEqual(@as(?i64, null), parseRfc3339("2024-01-15T10:30:00+02:00extra"));
+    // Fractional seconds must be supported
+    try std.testing.expectEqual(@as(?i64, 1705314600), parseRfc3339("2024-01-15T10:30:00.000Z"));
+    try std.testing.expectEqual(@as(?i64, 1705314600), parseRfc3339("2024-01-15T10:30:00.123Z"));
+    try std.testing.expectEqual(@as(?i64, 1705314600), parseRfc3339("2024-01-15T10:30:00.123456789Z"));
+    // Fractional seconds with timezone offset
+    try std.testing.expectEqual(@as(?i64, 1705314600), parseRfc3339("2024-01-15T12:30:00.500+02:00"));
+    // Trailing garbage after fractional seconds rejected
+    try std.testing.expectEqual(@as(?i64, null), parseRfc3339("2024-01-15T10:30:00.123Zextra"));
+    // Dot with no fractional digits rejected
+    try std.testing.expectEqual(@as(?i64, null), parseRfc3339("2024-01-15T10:30:00.Z"));
 }

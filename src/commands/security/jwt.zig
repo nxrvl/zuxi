@@ -53,6 +53,11 @@ fn doDecode(ctx: context.Context, token: []const u8) anyerror!void {
     if (part_count < 3) {
         parts[part_count] = token[start..];
         part_count += 1;
+    } else if (start < token.len) {
+        // Unconsumed content after 3 dots means 4+ segments
+        const writer = ctx.stderrWriter();
+        try writer.print("jwt: invalid token format (expected header.payload.signature)\n", .{});
+        return error.FormatError;
     }
     if (part_count != 3) {
         const writer = ctx.stderrWriter();
@@ -286,6 +291,11 @@ test "jwt decode invalid token format" {
 
 test "jwt decode too few segments" {
     const result = execWithInput("onlyone", "decode");
+    try std.testing.expectError(error.FormatError, result);
+}
+
+test "jwt decode too many segments" {
+    const result = execWithInput("a.b.c.d", "decode");
     try std.testing.expectError(error.FormatError, result);
 }
 
