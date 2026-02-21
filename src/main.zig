@@ -34,6 +34,9 @@ const json2xml_cmd = @import("commands/json/json2xml.zig");
 const xml2json_cmd = @import("commands/json/xml2json.zig");
 const yaml2toml_cmd = @import("commands/json/yaml2toml.zig");
 const toml2yaml_cmd = @import("commands/json/toml2yaml.zig");
+const csv2json_cmd = @import("commands/docs/csv2json.zig");
+const csv2md_cmd = @import("commands/docs/csv2md.zig");
+const tsv2md_cmd = @import("commands/docs/tsv2md.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -98,6 +101,9 @@ pub fn main() !void {
         xml2json_cmd.command,
         yaml2toml_cmd.command,
         toml2yaml_cmd.command,
+        csv2json_cmd.command,
+        csv2md_cmd.command,
+        tsv2md_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -198,6 +204,10 @@ comptime {
     _ = @import("commands/json/xml2json.zig");
     _ = @import("commands/json/yaml2toml.zig");
     _ = @import("commands/json/toml2yaml.zig");
+    _ = @import("commands/docs/csv.zig");
+    _ = @import("commands/docs/csv2json.zig");
+    _ = @import("commands/docs/csv2md.zig");
+    _ = @import("commands/docs/tsv2md.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

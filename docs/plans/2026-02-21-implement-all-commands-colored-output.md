@@ -201,13 +201,13 @@ other formatted outputs.
 - Create: `src/commands/docs/tsv2md.zig`
 - Modify: `src/main.zig`
 
-- [ ] Implement CSV parser: handle quoted fields, escaped quotes, commas in fields
-- [ ] csv2json: CSV -> JSON array of objects (first row = headers)
-- [ ] csv2md: CSV -> Markdown table with alignment
-- [ ] tsv2md: TSV -> Markdown table (tab-separated variant)
-- [ ] Register all 3 commands
-- [ ] Write tests
-- [ ] Run project test suite - must pass before task 12
+- [x] Implement CSV parser: handle quoted fields, escaped quotes, commas in fields
+- [x] csv2json: CSV -> JSON array of objects (first row = headers)
+- [x] csv2md: CSV -> Markdown table with alignment
+- [x] tsv2md: TSV -> Markdown table (tab-separated variant)
+- [x] Register all 3 commands
+- [x] Write tests
+- [x] Run project test suite - must pass before task 12
 
 ### Task 12: Web format tools - cssfmt, cssmin, htmlfmt, gqlquery
 
