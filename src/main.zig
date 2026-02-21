@@ -41,6 +41,8 @@ const cssfmt_cmd = @import("commands/docs/cssfmt.zig");
 const cssmin_cmd = @import("commands/docs/cssmin.zig");
 const htmlfmt_cmd = @import("commands/docs/htmlfmt.zig");
 const gqlquery_cmd = @import("commands/docs/gqlquery.zig");
+const urls_cmd = @import("commands/dev/urls.zig");
+const ports_cmd = @import("commands/dev/ports.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -112,6 +114,8 @@ pub fn main() !void {
         cssmin_cmd.command,
         htmlfmt_cmd.command,
         gqlquery_cmd.command,
+        urls_cmd.command,
+        ports_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -220,6 +224,8 @@ comptime {
     _ = @import("commands/docs/cssmin.zig");
     _ = @import("commands/docs/htmlfmt.zig");
     _ = @import("commands/docs/gqlquery.zig");
+    _ = @import("commands/dev/urls.zig");
+    _ = @import("commands/dev/ports.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

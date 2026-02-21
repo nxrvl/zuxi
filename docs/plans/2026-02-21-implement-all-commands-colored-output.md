@@ -233,16 +233,16 @@ other formatted outputs.
 - Create: `src/commands/dev/ports.zig`
 - Modify: `src/main.zig`
 
-- [ ] urls: extract URLs from text
+- [x] urls: extract URLs from text
   - Default: find all URLs matching http(s)://... pattern
   - Subcommand: strict (validate URL structure)
-- [ ] ports: list listening network ports
+- [x] ports: list listening network ports
   - Cross-platform: parse /proc/net/tcp on Linux, lsof/netstat on macOS
   - Show port, PID, process name
   - Filter by port number via positional arg
-- [ ] Register commands
-- [ ] Write tests
-- [ ] Run project test suite - must pass before task 14
+- [x] Register commands
+- [x] Write tests
+- [x] Run project test suite - must pass before task 14
 
 ### Task 14: Dev tools - envfile, serve, scaffold
 
