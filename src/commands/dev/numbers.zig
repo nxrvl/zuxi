@@ -83,15 +83,15 @@ fn formatBase(value: u64, base: Base, buf: *[130]u8) []const u8 {
             var pos: usize = 2;
             // Find highest set bit.
             var v = value;
-            var bits: u6 = 0;
+            var bits: u7 = 0;
             while (v > 0) : (v >>= 1) {
                 bits += 1;
             }
             // Write bits from MSB to LSB.
-            var i: u6 = bits;
+            var i: u7 = bits;
             while (i > 0) {
                 i -= 1;
-                const bit_val: u64 = @as(u64, 1) << i;
+                const bit_val: u64 = @as(u64, 1) << @as(u6, @intCast(i));
                 buf[pos] = if (value & bit_val != 0) '1' else '0';
                 pos += 1;
             }

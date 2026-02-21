@@ -164,8 +164,11 @@ fn parseElement(ctx: *ParseContext) anyerror!Node {
     if (startsWith(ctx, "</")) {
         ctx.pos += 2;
         skipWhitespace(ctx);
-        // Skip closing tag name.
-        _ = parseName(ctx);
+        // Validate closing tag name matches opening tag.
+        const closing_name = parseName(ctx);
+        if (!std.mem.eql(u8, closing_name, tag_copy)) {
+            return error.InvalidXml;
+        }
         skipWhitespace(ctx);
         if (ctx.pos < ctx.source.len and ctx.source[ctx.pos] == '>') {
             ctx.pos += 1;

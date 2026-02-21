@@ -73,8 +73,11 @@ fn sanitizePath(url_path: []const u8) ?[]const u8 {
 
     const path = url_path[1..]; // Strip leading /
 
-    // Check for directory traversal.
-    if (std.mem.indexOf(u8, path, "..") != null) return null;
+    // Check each path segment for ".." traversal.
+    var it = std.mem.splitScalar(u8, path, '/');
+    while (it.next()) |segment| {
+        if (std.mem.eql(u8, segment, "..")) return null;
+    }
 
     if (path.len == 0) return "index.html";
     return path;

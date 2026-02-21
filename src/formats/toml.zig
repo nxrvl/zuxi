@@ -442,12 +442,12 @@ fn parseValue(ctx: *ParseContext) anyerror!Value {
         return .{ .string = s };
     }
 
-    // Boolean values.
-    if (startsWith(ctx, "true")) {
+    // Boolean values (with word boundary check).
+    if (startsWith(ctx, "true") and isValueEnd(ctx, ctx.pos + 4)) {
         ctx.pos += 4;
         return .{ .boolean = true };
     }
-    if (startsWith(ctx, "false")) {
+    if (startsWith(ctx, "false") and isValueEnd(ctx, ctx.pos + 5)) {
         ctx.pos += 5;
         return .{ .boolean = false };
     }
@@ -462,20 +462,24 @@ fn parseValue(ctx: *ParseContext) anyerror!Value {
         return try parseInlineTable(ctx);
     }
 
-    // Special float values.
-    if (startsWith(ctx, "inf") or startsWith(ctx, "+inf")) {
+    // Special float values (with word boundary check).
+    if ((startsWith(ctx, "inf") and isValueEnd(ctx, ctx.pos + 3)) or
+        (startsWith(ctx, "+inf") and isValueEnd(ctx, ctx.pos + 4)))
+    {
         ctx.pos += if (c == '+') @as(usize, 4) else @as(usize, 3);
         return .{ .float = std.math.inf(f64) };
     }
-    if (startsWith(ctx, "-inf")) {
+    if (startsWith(ctx, "-inf") and isValueEnd(ctx, ctx.pos + 4)) {
         ctx.pos += 4;
         return .{ .float = -std.math.inf(f64) };
     }
-    if (startsWith(ctx, "nan") or startsWith(ctx, "+nan")) {
+    if ((startsWith(ctx, "nan") and isValueEnd(ctx, ctx.pos + 3)) or
+        (startsWith(ctx, "+nan") and isValueEnd(ctx, ctx.pos + 4)))
+    {
         ctx.pos += if (c == '+') @as(usize, 4) else @as(usize, 3);
         return .{ .float = std.math.nan(f64) };
     }
-    if (startsWith(ctx, "-nan")) {
+    if (startsWith(ctx, "-nan") and isValueEnd(ctx, ctx.pos + 4)) {
         ctx.pos += 4;
         return .{ .float = -std.math.nan(f64) };
     }
@@ -747,6 +751,14 @@ fn isDatetime(s: []const u8) bool {
 fn startsWith(ctx: *const ParseContext, prefix: []const u8) bool {
     if (ctx.pos + prefix.len > ctx.source.len) return false;
     return std.mem.eql(u8, ctx.source[ctx.pos .. ctx.pos + prefix.len], prefix);
+}
+
+/// Check if position is at end-of-value (delimiter, whitespace, or end of input).
+fn isValueEnd(ctx: *const ParseContext, pos: usize) bool {
+    if (pos >= ctx.source.len) return true;
+    const c = ctx.source[pos];
+    return c == ' ' or c == '\t' or c == '\n' or c == '\r' or
+        c == ',' or c == ']' or c == '}' or c == '#';
 }
 
 fn skipSpaces(ctx: *ParseContext) void {

@@ -350,17 +350,28 @@ fn parseFlowSequence(allocator: std.mem.Allocator, text: []const u8) !Value {
         if (c == ',' and depth == 0) {
             const seg = std.mem.trim(u8, content[seg_start..i], " ");
             if (seg.len > 0) {
-                try items.append(allocator, .{ .scalar = try allocator.dupe(u8, parseScalarValue(seg)) });
+                try items.append(allocator, try parseFlowValue(allocator, seg));
             }
             seg_start = i + 1;
         }
     }
     const last = std.mem.trim(u8, content[seg_start..], " ");
     if (last.len > 0) {
-        try items.append(allocator, .{ .scalar = try allocator.dupe(u8, parseScalarValue(last)) });
+        try items.append(allocator, try parseFlowValue(allocator, last));
     }
 
     return .{ .sequence = try items.toOwnedSlice(allocator) };
+}
+
+/// Parse a flow value, recursing into nested sequences/mappings.
+fn parseFlowValue(allocator: std.mem.Allocator, seg: []const u8) std.mem.Allocator.Error!Value {
+    if (seg.len > 0 and seg[0] == '[') {
+        return parseFlowSequence(allocator, seg);
+    }
+    if (seg.len > 0 and seg[0] == '{') {
+        return parseFlowMapping(allocator, seg);
+    }
+    return .{ .scalar = try allocator.dupe(u8, parseScalarValue(seg)) };
 }
 
 /// Parse a flow mapping: {key: val, key2: val2}
@@ -392,14 +403,17 @@ fn parseFlowMapping(allocator: std.mem.Allocator, text: []const u8) !Value {
 fn parseFlowEntry(allocator: std.mem.Allocator, entries: *std.ArrayList(MapEntry), segment: []const u8) !void {
     const trimmed = std.mem.trim(u8, segment, " ");
     if (trimmed.len == 0) return;
-    if (std.mem.indexOf(u8, trimmed, ":")) |colon| {
-        const k = std.mem.trim(u8, trimmed[0..colon], " ");
-        const v = std.mem.trim(u8, trimmed[colon + 1 ..], " ");
-        try entries.append(allocator, .{
-            .key = try allocator.dupe(u8, unquoteKey(k)),
-            .value = .{ .scalar = try allocator.dupe(u8, parseScalarValue(v)) },
-        });
-    }
+    // Use ": " (colon-space) as the delimiter per YAML spec for flow mappings.
+    // This avoids splitting on colons inside values (e.g., URLs like http://...).
+    // Fall back to bare ":" only if ": " is not found.
+    const colon_pos = std.mem.indexOf(u8, trimmed, ": ") orelse std.mem.indexOf(u8, trimmed, ":") orelse return;
+    const sep_len: usize = if (std.mem.indexOf(u8, trimmed, ": ") != null) 2 else 1;
+    const k = std.mem.trim(u8, trimmed[0..colon_pos], " ");
+    const v = std.mem.trim(u8, trimmed[colon_pos + sep_len ..], " ");
+    try entries.append(allocator, .{
+        .key = try allocator.dupe(u8, unquoteKey(k)),
+        .value = .{ .scalar = try allocator.dupe(u8, parseScalarValue(v)) },
+    });
 }
 
 fn findMatchingBracket(text: []const u8) ?usize {
@@ -632,14 +646,9 @@ fn needsQuoting(s: []const u8) bool {
         s[0] == '"' or s[0] == '%' or s[0] == '@' or s[0] == '`')
         return true;
 
-    // YAML reserved words.
-    if (std.mem.eql(u8, s, "true") or std.mem.eql(u8, s, "false") or
-        std.mem.eql(u8, s, "null") or std.mem.eql(u8, s, "yes") or
-        std.mem.eql(u8, s, "no") or std.mem.eql(u8, s, "True") or
-        std.mem.eql(u8, s, "False") or std.mem.eql(u8, s, "Null") or
-        std.mem.eql(u8, s, "YES") or std.mem.eql(u8, s, "NO") or
-        std.mem.eql(u8, s, "~"))
-        return true;
+    // YAML reserved words are native types - do NOT quote them.
+    // They should serialize as bare words (true, false, null, etc.)
+    // so that round-trips (json2yaml -> yaml2json) preserve types.
 
     // Contains colon-space, hash-space, or newlines.
     for (s, 0..) |c, i| {
@@ -648,8 +657,8 @@ fn needsQuoting(s: []const u8) bool {
         if (c == '\n' or c == '\r') return true;
     }
 
-    // Pure numeric strings should be quoted to preserve type.
-    if (isNumericString(s)) return true;
+    // Numeric strings are native YAML types - do NOT quote them.
+    // They should serialize as bare values so round-trips preserve types.
 
     return false;
 }
@@ -939,7 +948,7 @@ test "serialize simple mapping" {
     const output = try serialize(std.testing.allocator, value);
     defer std.testing.allocator.free(output);
     try std.testing.expect(std.mem.indexOf(u8, output, "name: zuxi\n") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output, "version: \"1\"\n") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "version: 1\n") != null);
 }
 
 test "serialize simple sequence" {
@@ -979,7 +988,7 @@ test "serialize quotes special values" {
 
     const output = try serialize(std.testing.allocator, value);
     defer std.testing.allocator.free(output);
-    try std.testing.expect(std.mem.indexOf(u8, output, "active: \"true\"\n") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "active: true\n") != null);
     try std.testing.expect(std.mem.indexOf(u8, output, "empty: \"\"\n") != null);
 }
 
@@ -1045,11 +1054,13 @@ test "parseScalarValue preserves unquoted value" {
 }
 
 test "needsQuoting for special values" {
-    try std.testing.expect(needsQuoting("true"));
-    try std.testing.expect(needsQuoting("false"));
-    try std.testing.expect(needsQuoting("null"));
-    try std.testing.expect(needsQuoting("42"));
-    try std.testing.expect(needsQuoting("3.14"));
+    // YAML native types (true, false, null, numbers) should NOT be quoted
+    // so that round-trips preserve types correctly.
+    try std.testing.expect(!needsQuoting("true"));
+    try std.testing.expect(!needsQuoting("false"));
+    try std.testing.expect(!needsQuoting("null"));
+    try std.testing.expect(!needsQuoting("42"));
+    try std.testing.expect(!needsQuoting("3.14"));
     try std.testing.expect(needsQuoting(""));
     try std.testing.expect(!needsQuoting("hello"));
     try std.testing.expect(!needsQuoting("some-text"));
