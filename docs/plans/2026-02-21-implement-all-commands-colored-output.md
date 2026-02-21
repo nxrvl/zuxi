@@ -165,12 +165,12 @@ other formatted outputs.
 - Create: `src/commands/json/xmlfmt.zig`
 - Modify: `src/main.zig`
 
-- [ ] Implement XML parser: elements, attributes, text content, self-closing tags, comments, CDATA, XML declaration
-- [ ] Implement XML serializer (pretty-print with indentation)
-- [ ] xmlfmt: parse and re-format XML with consistent indentation
-- [ ] Register command
-- [ ] Write parser tests + command tests
-- [ ] Run project test suite - must pass before task 10
+- [x] Implement XML parser: elements, attributes, text content, self-closing tags, comments, CDATA, XML declaration
+- [x] Implement XML serializer (pretty-print with indentation)
+- [x] xmlfmt: parse and re-format XML with consistent indentation
+- [x] Register command
+- [x] Write parser tests + command tests
+- [x] Run project test suite - must pass before task 10
 
 ### Task 10: Format conversions - all 8 conversion commands
 
