@@ -46,6 +46,9 @@ const ports_cmd = @import("commands/dev/ports.zig");
 const envfile_cmd = @import("commands/dev/envfile.zig");
 const serve_cmd = @import("commands/dev/serve.zig");
 const scaffold_cmd = @import("commands/dev/scaffold.zig");
+const gitignore_cmd = @import("commands/dev/gitignore.zig");
+const license_cmd = @import("commands/dev/license.zig");
+const iban_cmd = @import("commands/dev/iban.zig");
 
 pub const version = "0.1.0";
 pub const app_name = "zuxi";
@@ -122,6 +125,9 @@ pub fn main() !void {
         envfile_cmd.command,
         serve_cmd.command,
         scaffold_cmd.command,
+        gitignore_cmd.command,
+        license_cmd.command,
+        iban_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -235,6 +241,9 @@ comptime {
     _ = @import("commands/dev/envfile.zig");
     _ = @import("commands/dev/serve.zig");
     _ = @import("commands/dev/scaffold.zig");
+    _ = @import("commands/dev/gitignore.zig");
+    _ = @import("commands/dev/license.zig");
+    _ = @import("commands/dev/iban.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

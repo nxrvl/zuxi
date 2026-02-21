@@ -274,19 +274,19 @@ other formatted outputs.
 - Create: `src/commands/dev/iban.zig`
 - Modify: `src/main.zig`
 
-- [ ] gitignore: generate .gitignore from built-in templates
+- [x] gitignore: generate .gitignore from built-in templates
   - Templates: go, node, python, rust, zig, macos, linux, windows, vscode, jetbrains
   - Combine multiple: zuxi gitignore go,macos,vscode
-- [ ] license: generate license text
+- [x] license: generate license text
   - Templates: mit, apache2, gpl3, bsd2, bsd3, unlicense
   - Flags: --author, --year (defaults to current year)
-- [ ] iban: IBAN validation and generation
+- [x] iban: IBAN validation and generation
   - Subcommands: validate, generate
   - ISO 13616 check digit validation
   - Country code support for common countries
-- [ ] Register commands
-- [ ] Write tests
-- [ ] Run project test suite - must pass before task 16
+- [x] Register commands
+- [x] Write tests
+- [x] Run project test suite - must pass before task 16
 
 ### Task 16: Verify acceptance criteria
 
