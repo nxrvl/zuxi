@@ -122,6 +122,7 @@ comptime {
     _ = @import("core/io.zig");
     _ = @import("core/registry.zig");
     _ = @import("core/cli.zig");
+    _ = @import("core/color.zig");
     _ = @import("core/tui.zig");
     _ = @import("commands/json/jsonfmt.zig");
     _ = @import("commands/encoding/base64.zig");
