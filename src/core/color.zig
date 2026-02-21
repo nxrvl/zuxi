@@ -29,9 +29,10 @@ pub fn colorize(writer: anytype, text: []const u8, color_code: []const u8, no_co
 }
 
 /// Determine whether colored output should be used based on context.
-/// Returns false if --no-color flag is set or stdout is not a TTY.
+/// Returns false if --no-color flag is set, output goes to a file, or stdout is not a TTY.
 pub fn shouldColor(ctx: context.Context) bool {
     if (ctx.flags.no_color) return false;
+    if (ctx.flags.output_file != null) return false;
     return io_mod.isTty(ctx.stdout);
 }
 
@@ -198,6 +199,12 @@ test "colorize empty string" {
 test "shouldColor returns false when no_color is set" {
     var ctx = context.Context.initDefault(std.testing.allocator);
     ctx.flags.no_color = true;
+    try std.testing.expect(!shouldColor(ctx));
+}
+
+test "shouldColor returns false when output_file is set" {
+    var ctx = context.Context.initDefault(std.testing.allocator);
+    ctx.flags.output_file = "output.txt";
     try std.testing.expect(!shouldColor(ctx));
 }
 

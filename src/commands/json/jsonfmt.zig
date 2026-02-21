@@ -2,6 +2,7 @@ const std = @import("std");
 const context = @import("../../core/context.zig");
 const registry = @import("../../core/registry.zig");
 const io = @import("../../core/io.zig");
+const color = @import("../../core/color.zig");
 
 /// JSON formatting mode.
 const Mode = enum {
@@ -47,7 +48,7 @@ fn parseJson(ctx: context.Context, data: []const u8) anyerror!std.json.Parsed(st
     };
 }
 
-/// Pretty-print JSON with 4-space indentation.
+/// Pretty-print JSON with 4-space indentation, with optional syntax highlighting.
 fn doFormatPrettify(ctx: context.Context, data: []const u8) anyerror!void {
     const parsed = try parseJson(ctx, data);
     defer parsed.deinit();
@@ -57,9 +58,15 @@ fn doFormatPrettify(ctx: context.Context, data: []const u8) anyerror!void {
     }) catch return error.OutOfMemory;
     defer ctx.allocator.free(json_str);
 
-    const output = try appendNewline(ctx.allocator, json_str);
-    defer ctx.allocator.free(output);
-    try io.writeOutput(ctx, output);
+    if (color.shouldColor(ctx)) {
+        const stdout = ctx.stdoutWriter();
+        try color.writeColoredJson(stdout, json_str, false);
+        try stdout.writeByte('\n');
+    } else {
+        const output = try appendNewline(ctx.allocator, json_str);
+        defer ctx.allocator.free(output);
+        try io.writeOutput(ctx, output);
+    }
 }
 
 /// Minify JSON (compact, no whitespace).
@@ -228,6 +235,45 @@ test "jsonfmt validate empty array" {
     const output = try execWithInput("[]", "validate");
     defer std.testing.allocator.free(output);
     try std.testing.expect(std.mem.indexOf(u8, output, "Valid JSON") != null);
+}
+
+test "jsonfmt prettify no ANSI codes in file output" {
+    // When stdout is a file (not TTY), output should never contain ANSI escape codes.
+    const output = try execWithInput("{\"key\":\"value\",\"num\":42}", null);
+    defer std.testing.allocator.free(output);
+    try std.testing.expect(std.mem.indexOf(u8, output, "\x1b[") == null);
+    // Should still contain the data.
+    try std.testing.expect(std.mem.indexOf(u8, output, "\"key\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "\"value\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "42") != null);
+}
+
+test "jsonfmt prettify with explicit no_color flag" {
+    const allocator = std.testing.allocator;
+    const tmp_out = "zuxi_test_jsonfmt_nocolor.tmp";
+    const out_file = try std.fs.cwd().createFile(tmp_out, .{});
+
+    const args = [_][]const u8{"{\"a\":1}"};
+    var ctx = context.Context.initDefault(allocator);
+    ctx.args = &args;
+    ctx.stdout = out_file;
+    ctx.flags.no_color = true;
+
+    execute(ctx, null) catch |err| {
+        out_file.close();
+        std.fs.cwd().deleteFile(tmp_out) catch {};
+        return err;
+    };
+    out_file.close();
+
+    const file = try std.fs.cwd().openFile(tmp_out, .{});
+    defer file.close();
+    defer std.fs.cwd().deleteFile(tmp_out) catch {};
+    const output = try file.readToEndAlloc(allocator, io.max_input_size);
+    defer allocator.free(output);
+    // No ANSI codes when no_color is set.
+    try std.testing.expect(std.mem.indexOf(u8, output, "\x1b[") == null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "\"a\"") != null);
 }
 
 test "jsonfmt command struct fields" {

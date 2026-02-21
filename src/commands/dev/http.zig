@@ -2,6 +2,7 @@ const std = @import("std");
 const context = @import("../../core/context.zig");
 const registry = @import("../../core/registry.zig");
 const io = @import("../../core/io.zig");
+const color = @import("../../core/color.zig");
 
 /// Parsed HTTP request parameters extracted from positional args.
 pub const HttpArgs = struct {
@@ -179,14 +180,33 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
 
     const stdout = ctx.stdoutWriter();
     const status_code = @intFromEnum(response.head.status);
+    const use_stdout_color = !ctx.flags.no_color and io.isTty(ctx.stdout);
 
-    // Print status line.
-    try stdout.print("HTTP {d} {s}\n", .{ status_code, response.head.reason });
+    // Print status line with color based on status code range.
+    if (use_stdout_color) {
+        const status_color = if (status_code >= 200 and status_code < 300)
+            color.green
+        else if (status_code >= 300 and status_code < 400)
+            color.yellow
+        else
+            color.red;
+        try stdout.writeAll(status_color);
+    }
+    try stdout.print("HTTP {d} {s}", .{ status_code, response.head.reason });
+    if (use_stdout_color) {
+        try stdout.writeAll(color.reset);
+    }
+    try stdout.writeByte('\n');
 
-    // Print response headers.
+    // Print response headers with colored names.
     var header_iter = response.head.iterateHeaders();
     while (header_iter.next()) |header| {
-        try stdout.print("{s}: {s}\n", .{ header.name, header.value });
+        if (use_stdout_color) {
+            try color.colorize(stdout, header.name, color.cyan, false);
+            try stdout.print(": {s}\n", .{header.value});
+        } else {
+            try stdout.print("{s}: {s}\n", .{ header.name, header.value });
+        }
     }
     try stdout.print("\n", .{});
 
@@ -209,12 +229,17 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
     if (is_json_response) {
         if (prettyPrintJson(ctx.allocator, response_body)) |formatted| {
             defer ctx.allocator.free(formatted);
-            // Build complete output in one write to avoid file truncation with --output.
-            const out = try ctx.allocator.alloc(u8, formatted.len + 1);
-            defer ctx.allocator.free(out);
-            @memcpy(out[0..formatted.len], formatted);
-            out[formatted.len] = '\n';
-            try io.writeOutput(ctx, out);
+            if (color.shouldColor(ctx)) {
+                try color.writeColoredJson(stdout, formatted, false);
+                try stdout.writeByte('\n');
+            } else {
+                // Build complete output in one write to avoid file truncation with --output.
+                const out = try ctx.allocator.alloc(u8, formatted.len + 1);
+                defer ctx.allocator.free(out);
+                @memcpy(out[0..formatted.len], formatted);
+                out[formatted.len] = '\n';
+                try io.writeOutput(ctx, out);
+            }
             return;
         } else |_| {
             // Not valid JSON; fall through to raw output.
@@ -386,6 +411,16 @@ test "parseMethod accepts uppercase methods" {
 test "parseMethod rejects unknown method" {
     const result = parseMethod("foobar");
     try std.testing.expectError(error.InvalidArgument, result);
+}
+
+test "prettyPrintJson output has no ANSI codes" {
+    // prettyPrintJson returns plain JSON without ANSI codes; color is applied separately.
+    const allocator = std.testing.allocator;
+    const result = try prettyPrintJson(allocator, "{\"status\":\"ok\",\"code\":200}");
+    defer allocator.free(result);
+    try std.testing.expect(std.mem.indexOf(u8, result, "\x1b[") == null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "\"status\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "200") != null);
 }
 
 test "http command struct fields" {

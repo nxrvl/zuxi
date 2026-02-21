@@ -46,11 +46,11 @@ other formatted outputs.
 - Modify: `src/commands/security/jwt.zig`
 - Modify: `src/commands/dev/http.zig`
 
-- [ ] jsonfmt prettify: use writeColoredJson for colored JSON output when TTY and no --no-color
-- [ ] jwt decode: color section headers (bold), timestamp labels (cyan), EXPIRED (red), NOT EXPIRED (green)
-- [ ] http: color status line (green 2xx, yellow 3xx, red 4xx/5xx), header names (cyan), JSON body colored
-- [ ] Update existing tests to verify no regression; add tests with no_color=true/false
-- [ ] Run project test suite - must pass before task 3
+- [x] jsonfmt prettify: use writeColoredJson for colored JSON output when TTY and no --no-color
+- [x] jwt decode: color section headers (bold), timestamp labels (cyan), EXPIRED (red), NOT EXPIRED (green)
+- [x] http: color status line (green 2xx, yellow 3xx, red 4xx/5xx), header names (cyan), JSON body colored
+- [x] Update existing tests to verify no regression; add tests with no_color=true/false
+- [x] Run project test suite - must pass before task 3
 
 ### Task 3: Text commands - count, slug, urlencode
 
