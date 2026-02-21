@@ -112,12 +112,12 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 **Files:**
 - Create: `src/commands/security/http.zig`
 
-- [ ] Implement HTTP client using Zig std.http.Client: GET and POST methods
-- [ ] Support flags: --header (repeatable), --body (for POST), --json (set content-type and parse response)
-- [ ] Pretty-print JSON responses when detected, show status code and headers
-- [ ] Register command in the registry
-- [ ] Write tests for request building and response parsing (mock or known endpoints)
-- [ ] Run test suite - must pass before task 9
+- [x] Implement HTTP client using Zig std.http.Client: GET and POST methods
+- [x] Support flags: --header (repeatable), --body (for POST), --json (set content-type and parse response)
+- [x] Pretty-print JSON responses when detected, show status code and headers
+- [x] Register command in the registry
+- [x] Write tests for request building and response parsing (mock or known endpoints)
+- [x] Run test suite - must pass before task 9
 
 ### Task 9: TUI framework - rendering and layout
 

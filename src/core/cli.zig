@@ -91,7 +91,16 @@ pub fn parseArgs(raw_args: []const []const u8, positional_out: [][]const u8) err
                 }
                 continue;
             }
-            // Unknown flag - treat as an error.
+            // Unknown flag: if we have a command, pass through as positional
+            // arg so commands can handle their own flags (e.g., http --header).
+            if (command_name != null) {
+                if (positional_count >= positional_out.len) {
+                    return error.BufferTooSmall;
+                }
+                positional_out[positional_count] = arg;
+                positional_count += 1;
+                continue;
+            }
             return error.InvalidArgument;
         }
 
