@@ -39,11 +39,11 @@ Build Zuxi from scratch: project scaffolding, core framework (registry, context,
 - Create: `src/core/context.zig`
 - Create: `src/core/io.zig`
 
-- [ ] Implement errors.zig: unified error set (InvalidInput, IoError, FormatError, etc.)
-- [ ] Implement context.zig: Context struct with stdin/stdout/stderr handles, flags (format, no-color, quiet, output file), and config
-- [ ] Implement io.zig: helpers for reading stdin (all or line-by-line), writing to stdout or output file, detecting if stdin is a pipe
-- [ ] Write tests for each module
-- [ ] Run test suite - must pass before task 3
+- [x] Implement errors.zig: unified error set (InvalidInput, IoError, FormatError, etc.)
+- [x] Implement context.zig: Context struct with stdin/stdout/stderr handles, flags (format, no-color, quiet, output file), and config
+- [x] Implement io.zig: helpers for reading stdin (all or line-by-line), writing to stdout or output file, detecting if stdin is a pipe
+- [x] Write tests for each module
+- [x] Run test suite - must pass before task 3
 
 ### Task 3: Command registry and CLI argument parser
 

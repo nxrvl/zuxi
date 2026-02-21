@@ -63,6 +63,13 @@ pub fn printHelp(writer: anytype) !void {
     , .{ app_name, version, app_name, app_name });
 }
 
+// --- Module references (for test discovery) ---
+comptime {
+    _ = @import("core/errors.zig");
+    _ = @import("core/context.zig");
+    _ = @import("core/io.zig");
+}
+
 // --- Tests ---
 
 test "version string is set" {
