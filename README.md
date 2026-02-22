@@ -75,7 +75,7 @@ Navigate with arrow keys, Tab to switch panels, F2 to copy output, F3 to toggle 
 ### JSON
 
 ```bash
-# Format JSON (prettify)
+# Format JSON (prettify, with syntax highlighting)
 echo '{"a":1,"b":2}' | zuxi jsonfmt
 
 # Minify JSON
@@ -83,9 +83,91 @@ echo '{ "a": 1 }' | zuxi jsonfmt minify
 
 # Validate JSON
 echo '{"valid":true}' | zuxi jsonfmt validate
+
+# Repair broken JSON (common after LLM output)
+echo '{name: "test", }' | zuxi jsonrepair
+
+# Query with JSONPath
+echo '{"items":[{"id":1},{"id":2}]}' | zuxi jsonpath '.items[0].id'
+
+# Generate Go struct from JSON
+echo '{"name":"zuxi","count":42}' | zuxi jsonstruct
 ```
 
-### Encoding
+### YAML
+
+```bash
+# Format YAML
+echo 'name: test' | zuxi yamlfmt
+
+# Generate Go struct from YAML
+cat config.yaml | zuxi yamlstruct
+```
+
+### TOML
+
+```bash
+# Format TOML
+echo 'name = "test"' | zuxi tomlfmt
+```
+
+### XML
+
+```bash
+# Format XML
+echo '<root><item>test</item></root>' | zuxi xmlfmt
+```
+
+### Format Conversions
+
+```bash
+# JSON <-> YAML
+echo '{"key":"value"}' | zuxi json2yaml
+echo 'key: value' | zuxi yaml2json
+
+# JSON <-> TOML
+echo '{"key":"value"}' | zuxi json2toml
+echo 'key = "value"' | zuxi toml2json
+
+# JSON <-> XML
+echo '{"root":{"item":"test"}}' | zuxi json2xml
+echo '<root><item>test</item></root>' | zuxi xml2json
+
+# YAML <-> TOML
+echo 'key: value' | zuxi yaml2toml
+echo 'key = "value"' | zuxi toml2yaml
+```
+
+### CSV / TSV
+
+```bash
+# CSV to JSON
+echo 'name,age\nAlice,30' | zuxi csv2json
+
+# CSV to Markdown table
+echo 'name,age\nAlice,30' | zuxi csv2md
+
+# TSV to Markdown table
+echo 'name\tage\nAlice\t30' | zuxi tsv2md
+```
+
+### Web Formats
+
+```bash
+# Format CSS
+echo 'body{color:red;margin:0}' | zuxi cssfmt
+
+# Minify CSS
+cat style.css | zuxi cssmin
+
+# Format HTML
+echo '<div><p>hello</p></div>' | zuxi htmlfmt
+
+# Format GraphQL queries
+echo 'query { user(id:1) { name email } }' | zuxi gqlquery
+```
+
+### Encoding & Text
 
 ```bash
 # Base64 encode/decode
@@ -98,6 +180,16 @@ zuxi strcase camel "hello_world"     # helloWorld
 zuxi strcase pascal "hello_world"    # HelloWorld
 zuxi strcase kebab "helloWorld"      # hello-world
 zuxi strcase upper "hello world"     # HELLO WORLD
+
+# URL encode/decode
+zuxi urlencode encode "hello world"
+zuxi urlencode decode "hello%20world"
+
+# Generate URL slug
+zuxi slug "My New Blog Post"         # my-new-blog-post
+
+# Count characters, words, lines
+echo "hello world" | zuxi count
 ```
 
 ### Security
@@ -109,7 +201,10 @@ zuxi hash sha512 "test"
 zuxi hash md5 "test"
 echo -n "file contents" | zuxi hash sha256
 
-# JWT decode
+# HMAC signatures
+zuxi hmac sha256 "message" "secret-key"
+
+# JWT decode (with colored output)
 zuxi jwt decode "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.signature"
 ```
 
@@ -124,6 +219,9 @@ zuxi time unix 1700000000
 
 # Convert RFC3339 to Unix timestamp
 zuxi time rfc3339 "2023-11-14T22:13:20Z"
+
+# Parse cron expressions
+zuxi cron "*/5 * * * *"
 ```
 
 ### Dev Tools
@@ -135,10 +233,43 @@ zuxi uuid generate
 # Decode UUID
 zuxi uuid decode "550e8400-e29b-41d4-a716-446655440000"
 
-# HTTP requests
+# HTTP requests (with colored output)
 zuxi http GET https://httpbin.org/get
 zuxi http POST https://httpbin.org/post --body '{"key":"value"}' --json
 zuxi http GET https://example.com --header "Authorization: Bearer token"
+
+# Number base conversion
+zuxi numbers hex 255          # ff
+zuxi numbers bin 42           # 101010
+zuxi numbers dec 0xff         # 255
+
+# Extract URLs from text
+echo "Visit https://example.com" | zuxi urls
+
+# List listening ports
+zuxi ports
+
+# Validate/parse .env files
+zuxi envfile validate .env
+zuxi envfile export .env
+
+# Static file server
+zuxi serve .                  # Serve current directory on :8080
+zuxi serve ./public --port 3000
+
+# Scaffold project files
+zuxi scaffold .env
+zuxi scaffold docker
+
+# Generate .gitignore
+zuxi gitignore go,macos,vscode
+
+# Generate LICENSE file
+zuxi license mit
+
+# Validate IBAN
+zuxi iban validate "DE89370400440532013000"
+zuxi iban generate DE
 ```
 
 ## Build Options
@@ -156,7 +287,7 @@ zig build run                      # Build and run
 - Single static binary, cross-compiled
 - Binary size: ~5 MB
 - Startup time: <1ms
-- No network dependencies except the `http` command
+- No network dependencies except the `http` and `serve` commands
 
 ## License
 

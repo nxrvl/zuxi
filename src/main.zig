@@ -50,7 +50,7 @@ const gitignore_cmd = @import("commands/dev/gitignore.zig");
 const license_cmd = @import("commands/dev/license.zig");
 const iban_cmd = @import("commands/dev/iban.zig");
 
-pub const version = "0.1.0";
+pub const version = "0.2.0";
 pub const app_name = "zuxi";
 
 pub fn main() !void {
