@@ -13,8 +13,44 @@ const jwt_cmd = @import("commands/security/jwt.zig");
 const time_cmd = @import("commands/time/time.zig");
 const uuid_cmd = @import("commands/dev/uuid.zig");
 const http_cmd = @import("commands/dev/http.zig");
+const count_cmd = @import("commands/encoding/count.zig");
+const slug_cmd = @import("commands/encoding/slug.zig");
+const urlencode_cmd = @import("commands/encoding/urlencode.zig");
+const numbers_cmd = @import("commands/dev/numbers.zig");
+const hmac_cmd = @import("commands/security/hmac.zig");
+const cron_cmd = @import("commands/time/cron.zig");
+const jsonrepair_cmd = @import("commands/json/jsonrepair.zig");
+const jsonpath_cmd = @import("commands/json/jsonpath.zig");
+const jsonstruct_cmd = @import("commands/json/jsonstruct.zig");
+const yamlfmt_cmd = @import("commands/json/yamlfmt.zig");
+const yamlstruct_cmd = @import("commands/json/yamlstruct.zig");
+const tomlfmt_cmd = @import("commands/json/tomlfmt.zig");
+const xmlfmt_cmd = @import("commands/json/xmlfmt.zig");
+const json2yaml_cmd = @import("commands/json/json2yaml.zig");
+const yaml2json_cmd = @import("commands/json/yaml2json.zig");
+const json2toml_cmd = @import("commands/json/json2toml.zig");
+const toml2json_cmd = @import("commands/json/toml2json.zig");
+const json2xml_cmd = @import("commands/json/json2xml.zig");
+const xml2json_cmd = @import("commands/json/xml2json.zig");
+const yaml2toml_cmd = @import("commands/json/yaml2toml.zig");
+const toml2yaml_cmd = @import("commands/json/toml2yaml.zig");
+const csv2json_cmd = @import("commands/docs/csv2json.zig");
+const csv2md_cmd = @import("commands/docs/csv2md.zig");
+const tsv2md_cmd = @import("commands/docs/tsv2md.zig");
+const cssfmt_cmd = @import("commands/docs/cssfmt.zig");
+const cssmin_cmd = @import("commands/docs/cssmin.zig");
+const htmlfmt_cmd = @import("commands/docs/htmlfmt.zig");
+const gqlquery_cmd = @import("commands/docs/gqlquery.zig");
+const urls_cmd = @import("commands/dev/urls.zig");
+const ports_cmd = @import("commands/dev/ports.zig");
+const envfile_cmd = @import("commands/dev/envfile.zig");
+const serve_cmd = @import("commands/dev/serve.zig");
+const scaffold_cmd = @import("commands/dev/scaffold.zig");
+const gitignore_cmd = @import("commands/dev/gitignore.zig");
+const license_cmd = @import("commands/dev/license.zig");
+const iban_cmd = @import("commands/dev/iban.zig");
 
-pub const version = "0.1.0";
+pub const version = "0.2.0";
 pub const app_name = "zuxi";
 
 pub fn main() !void {
@@ -56,6 +92,42 @@ pub fn main() !void {
         time_cmd.command,
         uuid_cmd.command,
         http_cmd.command,
+        count_cmd.command,
+        slug_cmd.command,
+        urlencode_cmd.command,
+        numbers_cmd.command,
+        hmac_cmd.command,
+        cron_cmd.command,
+        jsonrepair_cmd.command,
+        jsonpath_cmd.command,
+        jsonstruct_cmd.command,
+        yamlfmt_cmd.command,
+        yamlstruct_cmd.command,
+        tomlfmt_cmd.command,
+        xmlfmt_cmd.command,
+        json2yaml_cmd.command,
+        yaml2json_cmd.command,
+        json2toml_cmd.command,
+        toml2json_cmd.command,
+        json2xml_cmd.command,
+        xml2json_cmd.command,
+        yaml2toml_cmd.command,
+        toml2yaml_cmd.command,
+        csv2json_cmd.command,
+        csv2md_cmd.command,
+        tsv2md_cmd.command,
+        cssfmt_cmd.command,
+        cssmin_cmd.command,
+        htmlfmt_cmd.command,
+        gqlquery_cmd.command,
+        urls_cmd.command,
+        ports_cmd.command,
+        envfile_cmd.command,
+        serve_cmd.command,
+        scaffold_cmd.command,
+        gitignore_cmd.command,
+        license_cmd.command,
+        iban_cmd.command,
     };
     for (commands_to_register) |cmd| {
         reg.register(cmd) catch {
@@ -122,6 +194,7 @@ comptime {
     _ = @import("core/io.zig");
     _ = @import("core/registry.zig");
     _ = @import("core/cli.zig");
+    _ = @import("core/color.zig");
     _ = @import("core/tui.zig");
     _ = @import("commands/json/jsonfmt.zig");
     _ = @import("commands/encoding/base64.zig");
@@ -131,6 +204,46 @@ comptime {
     _ = @import("commands/time/time.zig");
     _ = @import("commands/dev/uuid.zig");
     _ = @import("commands/dev/http.zig");
+    _ = @import("commands/encoding/count.zig");
+    _ = @import("commands/encoding/slug.zig");
+    _ = @import("commands/encoding/urlencode.zig");
+    _ = @import("commands/dev/numbers.zig");
+    _ = @import("commands/security/hmac.zig");
+    _ = @import("commands/time/cron.zig");
+    _ = @import("commands/json/jsonrepair.zig");
+    _ = @import("commands/json/jsonpath.zig");
+    _ = @import("commands/json/jsonstruct.zig");
+    _ = @import("commands/json/yamlfmt.zig");
+    _ = @import("commands/json/yamlstruct.zig");
+    _ = @import("formats/yaml.zig");
+    _ = @import("formats/toml.zig");
+    _ = @import("commands/json/tomlfmt.zig");
+    _ = @import("formats/xml.zig");
+    _ = @import("commands/json/xmlfmt.zig");
+    _ = @import("commands/json/json2yaml.zig");
+    _ = @import("commands/json/yaml2json.zig");
+    _ = @import("commands/json/json2toml.zig");
+    _ = @import("commands/json/toml2json.zig");
+    _ = @import("commands/json/json2xml.zig");
+    _ = @import("commands/json/xml2json.zig");
+    _ = @import("commands/json/yaml2toml.zig");
+    _ = @import("commands/json/toml2yaml.zig");
+    _ = @import("commands/docs/csv.zig");
+    _ = @import("commands/docs/csv2json.zig");
+    _ = @import("commands/docs/csv2md.zig");
+    _ = @import("commands/docs/tsv2md.zig");
+    _ = @import("commands/docs/cssfmt.zig");
+    _ = @import("commands/docs/cssmin.zig");
+    _ = @import("commands/docs/htmlfmt.zig");
+    _ = @import("commands/docs/gqlquery.zig");
+    _ = @import("commands/dev/urls.zig");
+    _ = @import("commands/dev/ports.zig");
+    _ = @import("commands/dev/envfile.zig");
+    _ = @import("commands/dev/serve.zig");
+    _ = @import("commands/dev/scaffold.zig");
+    _ = @import("commands/dev/gitignore.zig");
+    _ = @import("commands/dev/license.zig");
+    _ = @import("commands/dev/iban.zig");
     _ = @import("ui/themes/theme.zig");
     _ = @import("ui/components/list.zig");
     _ = @import("ui/components/textinput.zig");

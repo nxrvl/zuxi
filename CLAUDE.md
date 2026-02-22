@@ -39,12 +39,18 @@ src/
     tui.zig              # TUI rendering and interaction
     io.zig               # Stdin/stdout/file I/O helpers
     errors.zig           # Unified error types
+    color.zig            # ANSI color output and JSON syntax highlighting
+  formats/               # Format parsers/serializers (used by conversion commands)
+    yaml.zig             # YAML parser and serializer
+    toml.zig             # TOML parser and serializer
+    xml.zig              # XML parser and serializer
   commands/              # Each command is an independent module
-    json/                # jsonfmt, jsonpath, jsonrepair, etc.
-    encoding/            # base64, urlencode, strcase, etc.
-    security/            # jwt, hash, hmac, certinspect, etc.
-    time/                # time conversion, cron, durationcalc
-    dev/                 # uuid, http, ports, envfile, etc.
+    json/                # jsonfmt, jsonpath, jsonrepair, jsonstruct, yamlfmt, yamlstruct, tomlfmt, xmlfmt, format conversions
+    encoding/            # base64, urlencode, strcase, count, slug
+    security/            # jwt, hash, hmac
+    time/                # time conversion, cron
+    dev/                 # uuid, http, ports, envfile, serve, scaffold, gitignore, license, iban, numbers, urls
+    docs/                # csv2json, csv2md, tsv2md, cssfmt, cssmin, htmlfmt, gqlquery
   ui/
     components/          # TUI widgets
     layout/              # TUI layout system
@@ -69,9 +75,21 @@ All commands support: `--help`, `--version`, `--output <file>`, `--format json|t
 3. Register the command in `core/registry.zig`
 4. The command automatically becomes available in both CLI and TUI modes
 
-## MVP Commands (v0.1)
+## Implemented Commands
 
-jsonfmt, base64, strcase, hash (sha256/sha512/md5), time (unix/rfc3339), jwt (decode), http (GET/POST), uuid (generate/decode)
+**MVP (v0.1):** jsonfmt, base64, strcase, hash, time, jwt, http, uuid
+
+**v0.2 additions:**
+- Text: count, slug, urlencode
+- JSON toolkit: jsonrepair, jsonpath, jsonstruct
+- Format tools: yamlfmt, yamlstruct, tomlfmt, xmlfmt
+- Conversions: json2yaml, yaml2json, json2toml, toml2json, json2xml, xml2json, yaml2toml, toml2yaml
+- CSV/TSV: csv2json, csv2md, tsv2md
+- Web formats: cssfmt, cssmin, htmlfmt, gqlquery
+- Security: hmac
+- Dev: numbers, urls, ports, envfile, serve, scaffold, gitignore, license, iban
+- Time: cron
+- Color output: ANSI syntax highlighting for JSON, JWT, HTTP responses (respects --no-color and pipe detection)
 
 ## Constraints
 

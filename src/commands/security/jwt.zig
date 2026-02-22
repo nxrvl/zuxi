@@ -2,6 +2,7 @@ const std = @import("std");
 const context = @import("../../core/context.zig");
 const registry = @import("../../core/registry.zig");
 const io = @import("../../core/io.zig");
+const color = @import("../../core/color.zig");
 
 /// Entry point for the jwt command.
 pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
@@ -98,21 +99,30 @@ fn doDecode(ctx: context.Context, token: []const u8) anyerror!void {
     defer ctx.allocator.free(payload_pretty);
 
     // Build output.
+    const no_color = !color.shouldColor(ctx);
     var output = std.ArrayList(u8){};
     defer output.deinit(ctx.allocator);
     const w = output.writer(ctx.allocator);
 
-    try w.print("=== Header ===\n{s}\n", .{header_pretty});
-    try w.print("\n=== Payload ===\n{s}\n", .{payload_pretty});
+    try color.colorize(w, "=== Header ===", color.bold, no_color);
+    try w.writeByte('\n');
+    try color.writeColoredJson(w, header_pretty, no_color);
+    try w.writeByte('\n');
+
+    try w.writeByte('\n');
+    try color.colorize(w, "=== Payload ===", color.bold, no_color);
+    try w.writeByte('\n');
+    try color.writeColoredJson(w, payload_pretty, no_color);
+    try w.writeByte('\n');
 
     // Extract timestamp fields from payload.
     if (std.json.parseFromSlice(std.json.Value, ctx.allocator, payload_json, .{})) |parsed| {
         defer parsed.deinit();
         if (parsed.value == .object) {
             const obj = parsed.value.object;
-            try writeTimestamp(w, obj, "iat", "Issued At");
-            try writeTimestamp(w, obj, "exp", "Expires At");
-            try writeTimestamp(w, obj, "nbf", "Not Before");
+            try writeTimestamp(w, obj, "iat", "Issued At", no_color);
+            try writeTimestamp(w, obj, "exp", "Expires At", no_color);
+            try writeTimestamp(w, obj, "nbf", "Not Before", no_color);
 
             // Check expiration.
             if (obj.get("exp")) |exp_val| {
@@ -121,9 +131,11 @@ fn doDecode(ctx: context.Context, token: []const u8) anyerror!void {
                     const now_ts: i64 = @intCast(@divTrunc(std.time.milliTimestamp(), 1000));
                     try w.writeByte('\n');
                     if (exp_ts < now_ts) {
-                        try w.print("Status: EXPIRED (expired {d} seconds ago)\n", .{now_ts - exp_ts});
+                        try color.colorize(w, "Status: EXPIRED", color.red, no_color);
+                        try w.print(" (expired {d} seconds ago)\n", .{now_ts - exp_ts});
                     } else {
-                        try w.print("Status: NOT EXPIRED (expires in {d} seconds)\n", .{exp_ts - now_ts});
+                        try color.colorize(w, "Status: NOT EXPIRED", color.green, no_color);
+                        try w.print(" (expires in {d} seconds)\n", .{exp_ts - now_ts});
                     }
                     try w.print("Note: signature not verified (decode only)\n", .{});
                 }
@@ -131,13 +143,15 @@ fn doDecode(ctx: context.Context, token: []const u8) anyerror!void {
         }
     } else |_| {}
 
-    try w.print("\n=== Signature ===\n{s}\n", .{parts[2]});
+    try w.writeByte('\n');
+    try color.colorize(w, "=== Signature ===", color.bold, no_color);
+    try w.print("\n{s}\n", .{parts[2]});
 
     try io.writeOutput(ctx, output.items);
 }
 
 /// Write a human-readable timestamp line for a JWT claim.
-fn writeTimestamp(w: anytype, obj: std.json.ObjectMap, key: []const u8, label: []const u8) !void {
+fn writeTimestamp(w: anytype, obj: std.json.ObjectMap, key: []const u8, label: []const u8, no_color: bool) !void {
     if (obj.get(key)) |val| {
         if (val == .integer) {
             const ts = val.integer;
@@ -146,8 +160,9 @@ fn writeTimestamp(w: anytype, obj: std.json.ObjectMap, key: []const u8, label: [
             const day = epoch.getDaySeconds();
             const yd = epoch.getEpochDay().calculateYearDay();
             const md = yd.calculateMonthDay();
-            try w.print("\n{s}: {d} ({d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2} UTC)", .{
-                label,
+            try w.writeByte('\n');
+            try color.colorize(w, label, color.cyan, no_color);
+            try w.print(": {d} ({d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2} UTC)", .{
                 ts,
                 yd.year,
                 @intFromEnum(md.month),
@@ -303,6 +318,52 @@ test "jwt decode too many segments" {
 test "jwt unknown subcommand" {
     const result = execWithInput(test_token, "verify");
     try std.testing.expectError(error.InvalidArgument, result);
+}
+
+test "jwt decode no ANSI codes in file output" {
+    // When stdout is a file (not TTY), output should never contain ANSI escape codes.
+    const output = try execWithInput(test_token, "decode");
+    defer std.testing.allocator.free(output);
+    try std.testing.expect(std.mem.indexOf(u8, output, "\x1b[") == null);
+    // Should still contain all expected sections.
+    try std.testing.expect(std.mem.indexOf(u8, output, "=== Header ===") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "=== Payload ===") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "=== Signature ===") != null);
+}
+
+test "jwt decode with explicit no_color flag" {
+    const allocator = std.testing.allocator;
+    const tmp_out = "zuxi_test_jwt_nocolor.tmp";
+    const out_file = try std.fs.cwd().createFile(tmp_out, .{});
+
+    const args = [_][]const u8{test_token};
+    var ctx = context.Context.initDefault(allocator);
+    ctx.args = &args;
+    ctx.stdout = out_file;
+    ctx.flags.no_color = true;
+
+    execute(ctx, "decode") catch |err| {
+        out_file.close();
+        std.fs.cwd().deleteFile(tmp_out) catch {};
+        return err;
+    };
+    out_file.close();
+
+    const file = try std.fs.cwd().openFile(tmp_out, .{});
+    defer file.close();
+    defer std.fs.cwd().deleteFile(tmp_out) catch {};
+    const output = try file.readToEndAlloc(allocator, io.max_input_size);
+    defer allocator.free(output);
+    // No ANSI codes when no_color is set.
+    try std.testing.expect(std.mem.indexOf(u8, output, "\x1b[") == null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "Issued At") != null);
+}
+
+test "jwt decode expired token no ANSI codes" {
+    const output = try execWithInput(expired_token, "decode");
+    defer std.testing.allocator.free(output);
+    try std.testing.expect(std.mem.indexOf(u8, output, "\x1b[") == null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "EXPIRED") != null);
 }
 
 test "jwt command struct fields" {
