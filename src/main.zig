@@ -255,7 +255,7 @@ comptime {
 
 test "version string is set" {
     try std.testing.expect(version.len > 0);
-    try std.testing.expectEqualStrings("0.1.0", version);
+    try std.testing.expectEqualStrings("0.2.0", version);
 }
 
 test "app name is zuxi" {
