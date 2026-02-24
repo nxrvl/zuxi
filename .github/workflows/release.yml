@@ -166,14 +166,13 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
-        with:
-          path: repo
-
       - name: Extract tag annotation
         id: tag_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES=$(git -C repo tag -l --format='%(contents)' "${GITHUB_REF_NAME}")
+          TAG_SHA=$(gh api repos/${{ github.repository }}/git/ref/tags/${GITHUB_REF_NAME} --jq '.object.sha')
+          NOTES=$(gh api repos/${{ github.repository }}/git/tags/${TAG_SHA} --jq '.message')
           {
             echo "body<<EOFNOTES"
             echo "$NOTES"
