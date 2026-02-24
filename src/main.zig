@@ -50,7 +50,7 @@ const gitignore_cmd = @import("commands/dev/gitignore.zig");
 const license_cmd = @import("commands/dev/license.zig");
 const iban_cmd = @import("commands/dev/iban.zig");
 
-pub const version = "0.2.2";
+pub const version = "0.2.1";
 pub const app_name = "zuxi";
 
 pub fn main() !void {
@@ -258,7 +258,7 @@ comptime {
 
 test "version string is set" {
     try std.testing.expect(version.len > 0);
-    try std.testing.expectEqualStrings("0.2.2", version);
+    try std.testing.expectEqualStrings("0.2.1", version);
 }
 
 test "app name is zuxi" {
