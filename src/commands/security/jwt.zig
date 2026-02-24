@@ -6,13 +6,18 @@ const color = @import("../../core/color.zig");
 
 /// Entry point for the jwt command.
 pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
-    if (subcommand) |sub| {
-        if (!std.mem.eql(u8, sub, "decode")) {
-            const writer = ctx.stderrWriter();
-            try writer.print("jwt: unknown subcommand '{s}'\n", .{sub});
-            try writer.print("Available subcommands: decode\n", .{});
-            return error.InvalidArgument;
-        }
+    const sub = subcommand orelse "decode";
+
+    if (std.mem.eql(u8, sub, "generate")) {
+        try doGenerate(ctx);
+        return;
+    }
+
+    if (!std.mem.eql(u8, sub, "decode")) {
+        const writer = ctx.stderrWriter();
+        try writer.print("jwt: unknown subcommand '{s}'\n", .{sub});
+        try writer.print("Available subcommands: decode, generate\n", .{});
+        return error.InvalidArgument;
     }
 
     const input = try io.getInput(ctx) orelse {
@@ -20,11 +25,50 @@ pub fn execute(ctx: context.Context, subcommand: ?[]const u8) anyerror!void {
         try writer.print("jwt: no input provided\n", .{});
         try writer.print("Usage: zuxi jwt [decode] <token>\n", .{});
         try writer.print("       echo '<token>' | zuxi jwt decode\n", .{});
+        try writer.print("       zuxi jwt generate [bytes]\n", .{});
         return error.MissingArgument;
     };
     defer input.deinit(ctx.allocator);
 
     try doDecode(ctx, input.data);
+}
+
+/// Generate a cryptographically secure JWT secret key.
+/// Default: 32 bytes (256-bit, suitable for HS256).
+/// Optional arg: byte length (e.g. 48 for HS384, 64 for HS512).
+fn doGenerate(ctx: context.Context) anyerror!void {
+    var key_len: usize = 32; // default 256-bit
+
+    if (ctx.args.len > 0) {
+        key_len = std.fmt.parseInt(usize, ctx.args[0], 10) catch {
+            const writer = ctx.stderrWriter();
+            try writer.print("jwt generate: invalid length '{s}'\n", .{ctx.args[0]});
+            try writer.print("Usage: zuxi jwt generate [bytes]\n", .{});
+            try writer.print("       bytes: 32 (HS256, default), 48 (HS384), 64 (HS512)\n", .{});
+            return error.InvalidArgument;
+        };
+        if (key_len == 0 or key_len > 128) {
+            const writer = ctx.stderrWriter();
+            try writer.print("jwt generate: length must be between 1 and 128 bytes\n", .{});
+            return error.InvalidArgument;
+        }
+    }
+
+    var key_buf: [128]u8 = undefined;
+    const key = key_buf[0..key_len];
+    std.crypto.random.bytes(key);
+
+    // Encode as base64.
+    const Encoder = std.base64.standard.Encoder;
+    var b64_buf: [176]u8 = undefined; // ceil(128 * 4/3) = 172, +4 padding
+    const b64_len = Encoder.calcSize(key_len);
+    const b64 = b64_buf[0..b64_len];
+    _ = Encoder.encode(b64, key);
+
+    var out_buf: [177]u8 = undefined;
+    @memcpy(out_buf[0..b64_len], b64);
+    out_buf[b64_len] = '\n';
+    try io.writeOutput(ctx, out_buf[0 .. b64_len + 1]);
 }
 
 /// Decode a JWT token and display header, payload, and expiration info.
@@ -217,13 +261,54 @@ fn formatJson(allocator: std.mem.Allocator, data: []const u8) ![]u8 {
 /// Command definition for registration.
 pub const command = registry.Command{
     .name = "jwt",
-    .description = "Decode and inspect JWT tokens",
+    .description = "Decode and inspect JWT tokens, generate secret keys",
     .category = .security,
-    .subcommands = &.{"decode"},
+    .subcommands = &.{ "decode", "generate" },
     .execute = execute,
 };
 
 // --- Tests ---
+
+fn execGenerate(length_arg: ?[]const u8, subcommand: ?[]const u8) ![]u8 {
+    const allocator = std.testing.allocator;
+    const tmp_out = "zuxi_test_jwt_gen.tmp";
+    const tmp_in = "zuxi_test_jwt_gen_in.tmp";
+
+    const out_file = try std.fs.cwd().createFile(tmp_out, .{});
+
+    // Create an empty stdin file so getInput won't block.
+    const empty_in = try std.fs.cwd().createFile(tmp_in, .{});
+    empty_in.close();
+    const stdin_file = try std.fs.cwd().openFile(tmp_in, .{});
+
+    var args_buf: [1][]const u8 = undefined;
+    var args_slice: []const []const u8 = &.{};
+    if (length_arg) |arg| {
+        args_buf[0] = arg;
+        args_slice = args_buf[0..1];
+    }
+
+    var ctx = context.Context.initDefault(allocator);
+    ctx.args = args_slice;
+    ctx.stdout = out_file;
+    ctx.stdin = stdin_file;
+
+    execute(ctx, subcommand) catch |err| {
+        out_file.close();
+        stdin_file.close();
+        std.fs.cwd().deleteFile(tmp_out) catch {};
+        std.fs.cwd().deleteFile(tmp_in) catch {};
+        return err;
+    };
+    out_file.close();
+    stdin_file.close();
+    std.fs.cwd().deleteFile(tmp_in) catch {};
+
+    const file = try std.fs.cwd().openFile(tmp_out, .{});
+    defer file.close();
+    defer std.fs.cwd().deleteFile(tmp_out) catch {};
+    return try file.readToEndAlloc(allocator, io.max_input_size);
+}
 
 fn execWithInput(input: []const u8, subcommand: ?[]const u8) ![]u8 {
     const allocator = std.testing.allocator;
@@ -320,6 +405,60 @@ test "jwt unknown subcommand" {
     try std.testing.expectError(error.InvalidArgument, result);
 }
 
+test "jwt generate produces base64 output" {
+    const output = try execGenerate(null, "generate");
+    defer std.testing.allocator.free(output);
+    const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
+    // Default 32 bytes -> 44 base64 chars
+    try std.testing.expectEqual(@as(usize, 44), trimmed.len);
+    // Validate it's valid base64.
+    const decoder = std.base64.standard.Decoder;
+    const decoded_len = decoder.calcSizeForSlice(trimmed) catch unreachable;
+    const decoded = try std.testing.allocator.alloc(u8, decoded_len);
+    defer std.testing.allocator.free(decoded);
+    decoder.decode(decoded, trimmed) catch unreachable;
+    try std.testing.expectEqual(@as(usize, 32), decoded_len);
+}
+
+test "jwt generate custom length 64" {
+    const output = try execGenerate("64", "generate");
+    defer std.testing.allocator.free(output);
+    const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
+    // 64 bytes -> 88 base64 chars
+    try std.testing.expectEqual(@as(usize, 88), trimmed.len);
+}
+
+test "jwt generate custom length 48" {
+    const output = try execGenerate("48", "generate");
+    defer std.testing.allocator.free(output);
+    const trimmed = std.mem.trimRight(u8, output, &std.ascii.whitespace);
+    // 48 bytes -> 64 base64 chars
+    try std.testing.expectEqual(@as(usize, 64), trimmed.len);
+}
+
+test "jwt generate produces unique keys" {
+    const output1 = try execGenerate(null, "generate");
+    defer std.testing.allocator.free(output1);
+    const output2 = try execGenerate(null, "generate");
+    defer std.testing.allocator.free(output2);
+    try std.testing.expect(!std.mem.eql(u8, output1, output2));
+}
+
+test "jwt generate invalid length" {
+    const result = execGenerate("abc", "generate");
+    try std.testing.expectError(error.InvalidArgument, result);
+}
+
+test "jwt generate zero length" {
+    const result = execGenerate("0", "generate");
+    try std.testing.expectError(error.InvalidArgument, result);
+}
+
+test "jwt generate too large length" {
+    const result = execGenerate("256", "generate");
+    try std.testing.expectError(error.InvalidArgument, result);
+}
+
 test "jwt decode no ANSI codes in file output" {
     // When stdout is a file (not TTY), output should never contain ANSI escape codes.
     const output = try execWithInput(test_token, "decode");
@@ -369,7 +508,7 @@ test "jwt decode expired token no ANSI codes" {
 test "jwt command struct fields" {
     try std.testing.expectEqualStrings("jwt", command.name);
     try std.testing.expectEqual(registry.Category.security, command.category);
-    try std.testing.expectEqual(@as(usize, 1), command.subcommands.len);
+    try std.testing.expectEqual(@as(usize, 2), command.subcommands.len);
 }
 
 test "base64UrlDecode basic" {
