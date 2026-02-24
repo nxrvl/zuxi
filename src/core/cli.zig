@@ -5,6 +5,9 @@ const errors = @import("errors.zig");
 const io = @import("io.zig");
 const build_options = @import("build_options");
 
+/// Shell type for completions generation.
+pub const Shell = enum { fish, bash, zsh };
+
 /// Result of parsing CLI arguments.
 pub const ParseResult = union(enum) {
     /// Display version and exit.
@@ -17,6 +20,8 @@ pub const ParseResult = union(enum) {
     tui,
     /// Execute a command.
     command: CommandInvocation,
+    /// Generate shell completions.
+    completions: Shell,
 };
 
 /// A parsed command invocation ready for execution.
@@ -119,6 +124,12 @@ pub fn parseArgs(raw_args: []const []const u8, positional_out: [][]const u8) err
     }
 
     if (command_name) |cmd| {
+        // Handle "completions" as a special meta-command.
+        if (std.mem.eql(u8, cmd, "completions")) {
+            const shell = parseShell(subcommand);
+            return .{ .completions = shell };
+        }
+
         return .{ .command = .{
             .command_name = cmd,
             .subcommand = subcommand,
@@ -326,6 +337,152 @@ pub fn printCommandHelp(writer: anytype, reg: *const registry.Registry, cmd_name
         try writer.print(" <subcommand>", .{});
     }
     try writer.print(" [flags] [input]\n", .{});
+}
+
+/// Parse a shell name from the completions subcommand.
+/// Defaults to detecting from $SHELL env var, falls back to bash.
+fn parseShell(subcommand: ?[]const u8) Shell {
+    if (subcommand) |s| {
+        if (std.mem.eql(u8, s, "fish")) return .fish;
+        if (std.mem.eql(u8, s, "bash")) return .bash;
+        if (std.mem.eql(u8, s, "zsh")) return .zsh;
+    }
+    // Auto-detect from $SHELL.
+    if (std.posix.getenv("SHELL")) |shell_path| {
+        if (std.mem.endsWith(u8, shell_path, "fish")) return .fish;
+        if (std.mem.endsWith(u8, shell_path, "zsh")) return .zsh;
+    }
+    return .bash;
+}
+
+/// Generate shell completions from the registry and write to stdout.
+pub fn printCompletions(writer: anytype, reg: *const registry.Registry, shell: Shell) !void {
+    switch (shell) {
+        .fish => try printFishCompletions(writer, reg),
+        .bash => try printBashCompletions(writer, reg),
+        .zsh => try printZshCompletions(writer, reg),
+    }
+}
+
+fn printFishCompletions(w: anytype, reg: *const registry.Registry) !void {
+    try w.print("# Completions for zuxi (auto-generated)\n", .{});
+    try w.print("# Install: zuxi completions fish > ~/.config/fish/completions/zuxi.fish\n\n", .{});
+
+    // Global flags.
+    try w.print("complete -c zuxi -l help -s h -d 'Show help'\n", .{});
+    try w.print("complete -c zuxi -l version -s v -d 'Show version'\n", .{});
+    try w.print("complete -c zuxi -l output -s o -r -d 'Write output to file'\n", .{});
+    try w.print("complete -c zuxi -l format -s f -r -a 'json text' -d 'Output format'\n", .{});
+    try w.print("complete -c zuxi -l no-color -d 'Disable colored output'\n", .{});
+    try w.print("complete -c zuxi -l quiet -s q -d 'Suppress non-essential output'\n", .{});
+    try w.print("\n", .{});
+
+    // "completions" meta-command.
+    try w.print("complete -c zuxi -n '__fish_use_subcommand' -a 'completions' -d 'Generate shell completions'\n", .{});
+    try w.print("complete -c zuxi -n '__fish_seen_subcommand_from completions' -a 'fish bash zsh'\n", .{});
+
+    // Commands + subcommands.
+    for (reg.list()) |slot| {
+        const cmd = slot orelse continue;
+        try w.print("complete -c zuxi -n '__fish_use_subcommand' -a '{s}' -d '{s}'\n", .{ cmd.name, cmd.description });
+        if (cmd.subcommands.len > 0) {
+            for (cmd.subcommands) |sub| {
+                try w.print("complete -c zuxi -n '__fish_seen_subcommand_from {s}' -a '{s}'\n", .{ cmd.name, sub });
+            }
+        }
+    }
+}
+
+fn printBashCompletions(w: anytype, reg: *const registry.Registry) !void {
+    try w.print("# Completions for zuxi (auto-generated)\n", .{});
+    try w.print("# Install: zuxi completions bash > /etc/bash_completion.d/zuxi\n", .{});
+    try w.print("#      or: zuxi completions bash >> ~/.bashrc\n\n", .{});
+
+    try w.print("_zuxi() {{\n", .{});
+    try w.print("    local cur prev\n", .{});
+    try w.print("    cur=\"${{COMP_WORDS[COMP_CWORD]}}\"\n", .{});
+    try w.print("    prev=\"${{COMP_WORDS[COMP_CWORD-1]}}\"\n\n", .{});
+
+    try w.print("    if [ \"$COMP_CWORD\" -eq 1 ]; then\n", .{});
+    try w.print("        COMPREPLY=($(compgen -W \"", .{});
+    // List all commands.
+    var first = true;
+    for (reg.list()) |slot| {
+        const cmd = slot orelse continue;
+        if (!first) try w.print(" ", .{});
+        try w.print("{s}", .{cmd.name});
+        first = false;
+    }
+    try w.print(" completions\" -- \"$cur\"))\n", .{});
+    try w.print("        return\n", .{});
+    try w.print("    fi\n\n", .{});
+
+    try w.print("    case \"${{COMP_WORDS[1]}}\" in\n", .{});
+    for (reg.list()) |slot| {
+        const cmd = slot orelse continue;
+        if (cmd.subcommands.len > 0) {
+            try w.print("        {s}) COMPREPLY=($(compgen -W \"", .{cmd.name});
+            for (cmd.subcommands, 0..) |sub, si| {
+                if (si > 0) try w.print(" ", .{});
+                try w.print("{s}", .{sub});
+            }
+            try w.print("\" -- \"$cur\")) ;;\n", .{});
+        }
+    }
+    try w.print("        completions) COMPREPLY=($(compgen -W \"fish bash zsh\" -- \"$cur\")) ;;\n", .{});
+    try w.print("    esac\n", .{});
+    try w.print("}}\n\n", .{});
+    try w.print("complete -F _zuxi zuxi\n", .{});
+}
+
+fn printZshCompletions(w: anytype, reg: *const registry.Registry) !void {
+    try w.print("#compdef zuxi\n", .{});
+    try w.print("# Completions for zuxi (auto-generated)\n", .{});
+    try w.print("# Install: zuxi completions zsh > ~/.zsh/completions/_zuxi\n", .{});
+    try w.print("#   (ensure ~/.zsh/completions is in $fpath)\n\n", .{});
+
+    try w.print("_zuxi() {{\n", .{});
+    try w.print("    local -a commands\n", .{});
+    try w.print("    commands=(\n", .{});
+    for (reg.list()) |slot| {
+        const cmd = slot orelse continue;
+        try w.print("        '{s}:{s}'\n", .{ cmd.name, cmd.description });
+    }
+    try w.print("        'completions:Generate shell completions'\n", .{});
+    try w.print("    )\n\n", .{});
+
+    try w.print("    _arguments -C \\\n", .{});
+    try w.print("        '--help[Show help]' \\\n", .{});
+    try w.print("        '--version[Show version]' \\\n", .{});
+    try w.print("        '--no-color[Disable colored output]' \\\n", .{});
+    try w.print("        '--quiet[Suppress non-essential output]' \\\n", .{});
+    try w.print("        '--output[Write output to file]:file:_files' \\\n", .{});
+    try w.print("        '--format[Output format]:format:(json text)' \\\n", .{});
+    try w.print("        '1:command:->cmds' \\\n", .{});
+    try w.print("        '*::arg:->args'\n\n", .{});
+
+    try w.print("    case $state in\n", .{});
+    try w.print("    cmds)\n", .{});
+    try w.print("        _describe 'command' commands\n", .{});
+    try w.print("        ;;\n", .{});
+    try w.print("    args)\n", .{});
+    try w.print("        case ${{words[1]}} in\n", .{});
+    for (reg.list()) |slot| {
+        const cmd = slot orelse continue;
+        if (cmd.subcommands.len > 0) {
+            try w.print("            {s}) compadd", .{cmd.name});
+            for (cmd.subcommands) |sub| {
+                try w.print(" {s}", .{sub});
+            }
+            try w.print(" ;;\n", .{});
+        }
+    }
+    try w.print("            completions) compadd fish bash zsh ;;\n", .{});
+    try w.print("        esac\n", .{});
+    try w.print("        ;;\n", .{});
+    try w.print("    esac\n", .{});
+    try w.print("}}\n\n", .{});
+    try w.print("_zuxi\n", .{});
 }
 
 // --- Tests ---
@@ -642,4 +799,111 @@ test "editDistance catches common typos" {
 test "editDistance empty strings" {
     try std.testing.expectEqual(@as(usize, 3), editDistance("", "abc", 5));
     try std.testing.expectEqual(@as(usize, 3), editDistance("abc", "", 5));
+}
+
+test "parseArgs completions fish" {
+    const args = [_][]const u8{ "completions", "fish" };
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
+    switch (result) {
+        .completions => |shell| try std.testing.expectEqual(Shell.fish, shell),
+        else => return error.InvalidInput,
+    }
+}
+
+test "parseArgs completions bash" {
+    const args = [_][]const u8{ "completions", "bash" };
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
+    switch (result) {
+        .completions => |shell| try std.testing.expectEqual(Shell.bash, shell),
+        else => return error.InvalidInput,
+    }
+}
+
+test "parseArgs completions zsh" {
+    const args = [_][]const u8{ "completions", "zsh" };
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
+    switch (result) {
+        .completions => |shell| try std.testing.expectEqual(Shell.zsh, shell),
+        else => return error.InvalidInput,
+    }
+}
+
+test "parseArgs completions without shell auto-detects" {
+    const args = [_][]const u8{"completions"};
+    var pbuf: [16][]const u8 = undefined;
+    const result = try parseArgs(&args, &pbuf);
+    // Should return completions (auto-detected shell).
+    switch (result) {
+        .completions => {},
+        else => return error.InvalidInput,
+    }
+}
+
+test "printCompletions fish generates valid output" {
+    var reg = registry.Registry{};
+    const dummy_fn = struct {
+        fn exec(_: context.Context, _: ?[]const u8) anyerror!void {}
+    }.exec;
+    try reg.register(.{
+        .name = "jwt",
+        .description = "JWT tools",
+        .category = .security,
+        .subcommands = &.{ "decode", "generate" },
+        .execute = dummy_fn,
+    });
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try printCompletions(fbs.writer(), &reg, .fish);
+    const output = fbs.getWritten();
+    try std.testing.expect(std.mem.indexOf(u8, output, "complete -c zuxi") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "'jwt'") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "'decode'") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "'generate'") != null);
+}
+
+test "printCompletions bash generates valid output" {
+    var reg = registry.Registry{};
+    const dummy_fn = struct {
+        fn exec(_: context.Context, _: ?[]const u8) anyerror!void {}
+    }.exec;
+    try reg.register(.{
+        .name = "hash",
+        .description = "Hash tools",
+        .category = .security,
+        .subcommands = &.{ "sha256", "md5" },
+        .execute = dummy_fn,
+    });
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try printCompletions(fbs.writer(), &reg, .bash);
+    const output = fbs.getWritten();
+    try std.testing.expect(std.mem.indexOf(u8, output, "_zuxi()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "complete -F _zuxi zuxi") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "hash") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "sha256 md5") != null);
+}
+
+test "printCompletions zsh generates valid output" {
+    var reg = registry.Registry{};
+    const dummy_fn = struct {
+        fn exec(_: context.Context, _: ?[]const u8) anyerror!void {}
+    }.exec;
+    try reg.register(.{
+        .name = "base64",
+        .description = "Base64 encode/decode",
+        .category = .encoding,
+        .subcommands = &.{ "encode", "decode" },
+        .execute = dummy_fn,
+    });
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try printCompletions(fbs.writer(), &reg, .zsh);
+    const output = fbs.getWritten();
+    try std.testing.expect(std.mem.indexOf(u8, output, "#compdef zuxi") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "'base64:Base64 encode/decode'") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "encode") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output, "decode") != null);
 }
