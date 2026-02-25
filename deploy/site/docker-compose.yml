@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     ports:
       - "3847:80"
+    networks:
+      - web
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
       - "reproxy.server=zuxi.mpanin.me"
@@ -12,3 +14,7 @@ services:
       - "reproxy.dest=/$1"
       - "reproxy.port=80"
       - "reproxy.keep-host=true"
+
+networks:
+  web:
+    external: true
