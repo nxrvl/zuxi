@@ -1,0 +1,9 @@
+services:
+  site:
+    build: .
+    container_name: zuxi-site
+    restart: unless-stopped
+    ports:
+      - "3847:80"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"

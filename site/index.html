@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zuxi — Developer Toolkit</title>
+  <meta name="description" content="Cross-platform offline developer toolkit. 48 commands in a single static binary with CLI and TUI modes. No telemetry. No runtime dependencies.">
+  <meta name="keywords" content="zuxi, developer toolkit, CLI, TUI, JSON, base64, hash, uuid, zig">
+  <meta property="og:title" content="Zuxi — Developer Toolkit">
+  <meta property="og:description" content="Cross-platform offline developer toolkit. 48 commands in a single static binary.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://zuxi.mpanin.me">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">zuxi</span>
+      </a>
+      <nav class="nav">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#commands">Commands</a>
+        <a href="#tui">TUI</a>
+        <a href="https://github.com/nxrvl/zuxi" target="_blank" rel="noopener" class="nav-github" aria-label="GitHub">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">v0.2.1 &middot; Written in Zig</div>
+      <h1 class="hero-title">Developer Toolkit<br><span class="hero-accent">in a Single Binary</span></h1>
+      <p class="hero-desc">
+        48 commands for everyday dev tasks. JSON, encoding, hashing, time, HTTP, UUIDs &mdash; all offline, all fast.
+        <br>CLI and TUI modes. No telemetry. No runtime dependencies.
+      </p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">Install</a>
+        <a href="https://github.com/nxrvl/zuxi" target="_blank" rel="noopener" class="btn btn-secondary">GitHub</a>
+      </div>
+      <div class="hero-code">
+        <div class="code-header">
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-dot"></span>
+          <span class="code-title">Terminal</span>
+        </div>
+        <pre><code><span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'{"name":"zuxi","version":"0.2.1"}'</span> | <span class="c-cmd">zuxi</span> jsonfmt
+<span class="c-out">{
+  "name": "zuxi",
+  "version": "0.2.1"
+}</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> hash sha256 <span class="c-str">"hello world"</span>
+<span class="c-out">b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> uuid generate
+<span class="c-out">550e8400-e29b-41d4-a716-446655440000</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> base64 encode <span class="c-str">"hello world"</span>
+<span class="c-out">aGVsbG8gd29ybGQ=</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <section class="stats">
+    <div class="container stats-grid">
+      <div class="stat">
+        <span class="stat-value">48</span>
+        <span class="stat-label">Commands</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">~5 MB</span>
+        <span class="stat-label">Binary Size</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">&lt;1ms</span>
+        <span class="stat-label">Startup Time</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">0</span>
+        <span class="stat-label">Dependencies</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="section">
+    <div class="container">
+      <h2 class="section-title">Why Zuxi</h2>
+      <p class="section-desc">Replace dozens of fragmented tools with one binary that works everywhere.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔧</div>
+          <h3>Single Binary</h3>
+          <p>One static binary, no runtime dependencies. Download and run &mdash; on macOS or Linux, arm64 or amd64.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⌨️</div>
+          <h3>CLI + TUI</h3>
+          <p>Pipe-friendly CLI for scripts and automation. Interactive TUI with live preview for exploration.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Fully Offline</h3>
+          <p>No telemetry, no phone-home, no accounts. Your data never leaves your machine.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Instant Startup</h3>
+          <p>Sub-millisecond startup time. No interpreters, no JIT warmup. Written in Zig for maximum performance.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <h3>Colored Output</h3>
+          <p>Syntax-highlighted JSON, JWT, HTTP responses. Respects <code>--no-color</code> and pipe detection.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h3>Easy Install</h3>
+          <p>Homebrew, deb, rpm packages, or direct binary download. Build from source with just Zig.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section id="install" class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">Installation</h2>
+      <p class="section-desc">Choose your preferred method.</p>
+      <div class="install-grid">
+        <div class="install-card">
+          <h3>macOS (Homebrew)</h3>
+          <div class="code-block">
+            <button class="copy-btn" data-copy="brew install nxrvl/tap/zuxi" aria-label="Copy">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <pre><code>brew install nxrvl/tap/zuxi</code></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h3>Linux (Debian / Ubuntu)</h3>
+          <div class="code-block">
+            <button class="copy-btn" data-copy="curl -LO https://github.com/nxrvl/zuxi/releases/latest/download/zuxi_0.2.1_amd64.deb
+sudo dpkg -i zuxi_0.2.1_amd64.deb" aria-label="Copy">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <pre><code>curl -LO https://github.com/nxrvl/zuxi/releases/latest/download/zuxi_0.2.1_amd64.deb
+sudo dpkg -i zuxi_0.2.1_amd64.deb</code></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h3>Linux (Fedora / RHEL)</h3>
+          <div class="code-block">
+            <button class="copy-btn" data-copy="curl -LO https://github.com/nxrvl/zuxi/releases/latest/download/zuxi-0.2.1-1.x86_64.rpm
+sudo rpm -i zuxi-0.2.1-1.x86_64.rpm" aria-label="Copy">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <pre><code>curl -LO https://github.com/nxrvl/zuxi/releases/latest/download/zuxi-0.2.1-1.x86_64.rpm
+sudo rpm -i zuxi-0.2.1-1.x86_64.rpm</code></pre>
+          </div>
+        </div>
+        <div class="install-card">
+          <h3>Build from Source</h3>
+          <div class="code-block">
+            <button class="copy-btn" data-copy="git clone https://github.com/nxrvl/zuxi.git
+cd zuxi
+zig build -Doptimize=ReleaseSafe" aria-label="Copy">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <pre><code>git clone https://github.com/nxrvl/zuxi.git
+cd zuxi
+zig build -Doptimize=ReleaseSafe</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Commands -->
+  <section id="commands" class="section">
+    <div class="container">
+      <h2 class="section-title">Commands</h2>
+      <p class="section-desc">48 commands organized into 6 categories. Every command works in both CLI and TUI modes.</p>
+
+      <!-- Category Tabs -->
+      <div class="cmd-tabs" role="tablist">
+        <button class="cmd-tab active" data-tab="json" role="tab" aria-selected="true">JSON &amp; Formats</button>
+        <button class="cmd-tab" data-tab="encoding" role="tab" aria-selected="false">Encoding</button>
+        <button class="cmd-tab" data-tab="security" role="tab" aria-selected="false">Security</button>
+        <button class="cmd-tab" data-tab="time" role="tab" aria-selected="false">Time</button>
+        <button class="cmd-tab" data-tab="dev" role="tab" aria-selected="false">Dev Tools</button>
+        <button class="cmd-tab" data-tab="docs" role="tab" aria-selected="false">Docs</button>
+      </div>
+
+      <!-- JSON & Formats -->
+      <div class="cmd-panel active" id="panel-json" role="tabpanel">
+        <div class="cmd-split">
+          <div class="cmd-list">
+            <h4>Formatters</h4>
+            <div class="cmd-item">
+              <code>jsonfmt</code>
+              <span>Format, minify, or validate JSON</span>
+            </div>
+            <div class="cmd-item">
+              <code>jsonrepair</code>
+              <span>Fix broken JSON (LLM output, trailing commas)</span>
+            </div>
+            <div class="cmd-item">
+              <code>jsonpath</code>
+              <span>Query JSON with dot-notation paths</span>
+            </div>
+            <div class="cmd-item">
+              <code>jsonstruct</code>
+              <span>Generate Go struct from JSON</span>
+            </div>
+            <div class="cmd-item">
+              <code>yamlfmt</code>
+              <span>Format YAML with consistent indentation</span>
+            </div>
+            <div class="cmd-item">
+              <code>yamlstruct</code>
+              <span>Generate Go struct from YAML</span>
+            </div>
+            <div class="cmd-item">
+              <code>tomlfmt</code>
+              <span>Format TOML with consistent style</span>
+            </div>
+            <div class="cmd-item">
+              <code>xmlfmt</code>
+              <span>Format XML with consistent indentation</span>
+            </div>
+
+            <h4>Conversions</h4>
+            <div class="cmd-item">
+              <code>json2yaml</code>
+              <span>Convert JSON to YAML</span>
+            </div>
+            <div class="cmd-item">
+              <code>yaml2json</code>
+              <span>Convert YAML to JSON</span>
+            </div>
+            <div class="cmd-item">
+              <code>json2toml</code>
+              <span>Convert JSON to TOML</span>
+            </div>
+            <div class="cmd-item">
+              <code>toml2json</code>
+              <span>Convert TOML to JSON</span>
+            </div>
+            <div class="cmd-item">
+              <code>json2xml</code>
+              <span>Convert JSON to XML</span>
+            </div>
+            <div class="cmd-item">
+              <code>xml2json</code>
+              <span>Convert XML to JSON</span>
+            </div>
+            <div class="cmd-item">
+              <code>yaml2toml</code>
+              <span>Convert YAML to TOML</span>
+            </div>
+            <div class="cmd-item">
+              <code>toml2yaml</code>
+              <span>Convert TOML to YAML</span>
+            </div>
+          </div>
+          <div class="cmd-example">
+            <div class="code-block">
+              <pre><code><span class="c-comment"># Pretty-print JSON with syntax highlighting</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'{"a":1,"b":[2,3]}'</span> | <span class="c-cmd">zuxi</span> jsonfmt
+<span class="c-out">{
+  "a": 1,
+  "b": [
+    2,
+    3
+  ]
+}</span>
+
+<span class="c-comment"># Fix broken JSON from LLM output</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'{name: "test", }'</span> | <span class="c-cmd">zuxi</span> jsonrepair
+<span class="c-out">{"name": "test"}</span>
+
+<span class="c-comment"># Query nested data</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'{"users":[{"name":"Alice"}]}'</span> | <span class="c-cmd">zuxi</span> jsonpath <span class="c-str">'.users[0].name'</span>
+<span class="c-out">Alice</span>
+
+<span class="c-comment"># Convert between formats</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'{"key":"value"}'</span> | <span class="c-cmd">zuxi</span> json2yaml
+<span class="c-out">key: value</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Encoding -->
+      <div class="cmd-panel" id="panel-encoding" role="tabpanel">
+        <div class="cmd-split">
+          <div class="cmd-list">
+            <div class="cmd-item">
+              <code>base64</code>
+              <span>Encode or decode base64 data</span>
+            </div>
+            <div class="cmd-item">
+              <code>strcase</code>
+              <span>Convert between snake, camel, pascal, kebab, upper case</span>
+            </div>
+            <div class="cmd-item">
+              <code>urlencode</code>
+              <span>URL percent-encoding and decoding (RFC 3986)</span>
+            </div>
+            <div class="cmd-item">
+              <code>count</code>
+              <span>Count characters, words, and lines in text</span>
+            </div>
+            <div class="cmd-item">
+              <code>slug</code>
+              <span>Convert text to a URL-friendly slug</span>
+            </div>
+          </div>
+          <div class="cmd-example">
+            <div class="code-block">
+              <pre><code><span class="c-comment"># Base64 encode/decode</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> base64 encode <span class="c-str">"hello world"</span>
+<span class="c-out">aGVsbG8gd29ybGQ=</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> base64 decode <span class="c-str">"aGVsbG8gd29ybGQ="</span>
+<span class="c-out">hello world</span>
+
+<span class="c-comment"># String case conversion</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> strcase snake <span class="c-str">"helloWorld"</span>
+<span class="c-out">hello_world</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> strcase pascal <span class="c-str">"hello_world"</span>
+<span class="c-out">HelloWorld</span>
+
+<span class="c-comment"># Generate URL slug</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> slug <span class="c-str">"My New Blog Post"</span>
+<span class="c-out">my-new-blog-post</span>
+
+<span class="c-comment"># Count text</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">"hello world"</span> | <span class="c-cmd">zuxi</span> count
+<span class="c-out">Characters: 11
+Words: 2
+Lines: 1</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="cmd-panel" id="panel-security" role="tabpanel">
+        <div class="cmd-split">
+          <div class="cmd-list">
+            <div class="cmd-item">
+              <code>hash</code>
+              <span>Compute SHA-256, SHA-512, MD5 digests</span>
+            </div>
+            <div class="cmd-item">
+              <code>hmac</code>
+              <span>Compute HMAC signatures (SHA-256, SHA-512)</span>
+            </div>
+            <div class="cmd-item">
+              <code>jwt</code>
+              <span>Decode JWT tokens, generate secret keys</span>
+            </div>
+          </div>
+          <div class="cmd-example">
+            <div class="code-block">
+              <pre><code><span class="c-comment"># Hash a string</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> hash sha256 <span class="c-str">"test"</span>
+<span class="c-out">9f86d081884c7d659a2feaa0c55ad015...</span>
+
+<span class="c-comment"># Hash from stdin</span>
+<span class="c-prompt">$</span> <span class="c-cmd">cat</span> file.txt | <span class="c-cmd">zuxi</span> hash sha512
+<span class="c-out">ee26b0dd4af7e749aa1a8ee3c10ae992...</span>
+
+<span class="c-comment"># HMAC signature</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> hmac sha256 <span class="c-str">"message"</span> <span class="c-str">"secret-key"</span>
+<span class="c-out">4a7d1ed414474e4033ac29ccb8653d9b...</span>
+
+<span class="c-comment"># Decode JWT with colored output</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> jwt decode <span class="c-str">"eyJhbGciOi..."</span>
+<span class="c-out">Header:  {"alg":"HS256","typ":"JWT"}
+Payload: {"sub":"user","iat":1700000}</span>
+
+<span class="c-comment"># Generate JWT secret key</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> jwt generate
+<span class="c-out">kX9m2pQ7...</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time -->
+      <div class="cmd-panel" id="panel-time" role="tabpanel">
+        <div class="cmd-split">
+          <div class="cmd-list">
+            <div class="cmd-item">
+              <code>time</code>
+              <span>Convert between Unix timestamps and RFC3339</span>
+            </div>
+            <div class="cmd-item">
+              <code>cron</code>
+              <span>Parse and explain cron expressions</span>
+            </div>
+          </div>
+          <div class="cmd-example">
+            <div class="code-block">
+              <pre><code><span class="c-comment"># Current time in multiple formats</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> time now
+<span class="c-out">Unix:    1700000000
+RFC3339: 2023-11-14T22:13:20Z</span>
+
+<span class="c-comment"># Convert Unix timestamp</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> time unix 1700000000
+<span class="c-out">2023-11-14T22:13:20Z</span>
+
+<span class="c-comment"># Convert RFC3339 to Unix</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> time rfc3339 <span class="c-str">"2023-11-14T22:13:20Z"</span>
+<span class="c-out">1700000000</span>
+
+<span class="c-comment"># Parse cron expression</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> cron <span class="c-str">"*/5 * * * *"</span>
+<span class="c-out">Every 5 minutes
+Next: 2023-11-14T22:15:00Z</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dev Tools -->
+      <div class="cmd-panel" id="panel-dev" role="tabpanel">
+        <div class="cmd-split">
+          <div class="cmd-list">
+            <div class="cmd-item">
+              <code>uuid</code>
+              <span>Generate and decode UUIDs</span>
+            </div>
+            <div class="cmd-item">
+              <code>numbers</code>
+              <span>Convert between bin, oct, dec, hex</span>
+            </div>
+            <div class="cmd-item">
+              <code>http</code>
+              <span>HTTP client (GET, POST, PUT, DELETE)</span>
+            </div>
+            <div class="cmd-item">
+              <code>serve</code>
+              <span>Simple static HTTP file server</span>
+            </div>
+            <div class="cmd-item">
+              <code>urls</code>
+              <span>Extract URLs from text</span>
+            </div>
+            <div class="cmd-item">
+              <code>ports</code>
+              <span>List listening network ports</span>
+            </div>
+            <div class="cmd-item">
+              <code>envfile</code>
+              <span>Validate and convert .env files</span>
+            </div>
+            <div class="cmd-item">
+              <code>scaffold</code>
+              <span>Generate project file templates</span>
+            </div>
+            <div class="cmd-item">
+              <code>gitignore</code>
+              <span>Generate .gitignore from templates</span>
+            </div>
+            <div class="cmd-item">
+              <code>license</code>
+              <span>Generate license text (MIT, Apache, GPL...)</span>
+            </div>
+            <div class="cmd-item">
+              <code>iban</code>
+              <span>IBAN validation and generation</span>
+            </div>
+          </div>
+          <div class="cmd-example">
+            <div class="code-block">
+              <pre><code><span class="c-comment"># Generate UUID v4</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> uuid generate
+<span class="c-out">550e8400-e29b-41d4-a716-446655440000</span>
+
+<span class="c-comment"># Number conversion</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> numbers hex 255
+<span class="c-out">ff</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> numbers bin 42
+<span class="c-out">101010</span>
+
+<span class="c-comment"># HTTP requests with colored output</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> http GET https://httpbin.org/get
+
+<span class="c-comment"># Serve static files</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> serve . --port 3000
+<span class="c-out">Serving . on :3000</span>
+
+<span class="c-comment"># Generate .gitignore</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> gitignore go,macos,vscode
+
+<span class="c-comment"># Generate license</span>
+<span class="c-prompt">$</span> <span class="c-cmd">zuxi</span> license mit</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Docs -->
+      <div class="cmd-panel" id="panel-docs" role="tabpanel">
+        <div class="cmd-split">
+          <div class="cmd-list">
+            <div class="cmd-item">
+              <code>csv2json</code>
+              <span>Convert CSV to JSON array of objects</span>
+            </div>
+            <div class="cmd-item">
+              <code>csv2md</code>
+              <span>Convert CSV to Markdown table</span>
+            </div>
+            <div class="cmd-item">
+              <code>tsv2md</code>
+              <span>Convert TSV to Markdown table</span>
+            </div>
+            <div class="cmd-item">
+              <code>cssfmt</code>
+              <span>Format CSS with consistent indentation</span>
+            </div>
+            <div class="cmd-item">
+              <code>cssmin</code>
+              <span>Minify CSS</span>
+            </div>
+            <div class="cmd-item">
+              <code>htmlfmt</code>
+              <span>Format HTML with consistent indentation</span>
+            </div>
+            <div class="cmd-item">
+              <code>gqlquery</code>
+              <span>Format GraphQL queries</span>
+            </div>
+          </div>
+          <div class="cmd-example">
+            <div class="code-block">
+              <pre><code><span class="c-comment"># CSV to JSON</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'name,age\nAlice,30'</span> | <span class="c-cmd">zuxi</span> csv2json
+<span class="c-out">[{"name":"Alice","age":"30"}]</span>
+
+<span class="c-comment"># CSV to Markdown table</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'name,age\nAlice,30'</span> | <span class="c-cmd">zuxi</span> csv2md
+<span class="c-out">| name  | age |
+|-------|-----|
+| Alice | 30  |</span>
+
+<span class="c-comment"># Format CSS</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'body{color:red;margin:0}'</span> | <span class="c-cmd">zuxi</span> cssfmt
+<span class="c-out">body {
+  color: red;
+  margin: 0;
+}</span>
+
+<span class="c-comment"># Format GraphQL</span>
+<span class="c-prompt">$</span> <span class="c-cmd">echo</span> <span class="c-str">'query{user(id:1){name}}'</span> | <span class="c-cmd">zuxi</span> gqlquery
+<span class="c-out">query {
+  user(id: 1) {
+    name
+  }
+}</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Global Flags -->
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">Global Flags</h2>
+      <p class="section-desc">Supported by every command.</p>
+      <div class="flags-table-wrap">
+        <table class="flags-table">
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>--help</code>, <code>-h</code></td><td>Show help for any command</td></tr>
+            <tr><td><code>--version</code>, <code>-v</code></td><td>Show version</td></tr>
+            <tr><td><code>--output &lt;file&gt;</code></td><td>Write output to a file instead of stdout</td></tr>
+            <tr><td><code>--format json|text</code></td><td>Control output format</td></tr>
+            <tr><td><code>--no-color</code></td><td>Disable ANSI colored output</td></tr>
+            <tr><td><code>--quiet</code></td><td>Suppress non-essential output</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- TUI -->
+  <section id="tui" class="section">
+    <div class="container">
+      <h2 class="section-title">Interactive TUI</h2>
+      <p class="section-desc">Run <code>zuxi</code> without arguments to launch the interactive terminal UI.</p>
+      <div class="tui-features">
+        <div class="tui-card">
+          <h3>Live Preview</h3>
+          <p>See results as you type. Input and output side-by-side with real-time processing.</p>
+        </div>
+        <div class="tui-card">
+          <h3>Keyboard Navigation</h3>
+          <p>Arrow keys to browse commands, Tab to switch panels, F2 to copy output.</p>
+        </div>
+        <div class="tui-card">
+          <h3>Dark &amp; Light Themes</h3>
+          <p>Toggle themes with F3. Both optimized for readability and long sessions.</p>
+        </div>
+      </div>
+      <div class="tui-demo">
+        <div class="tui-titlebar">
+          <span>zuxi ~/projects/zuxi</span>
+        </div>
+        <div class="tui-hotkeys">Tab:panel &nbsp; F2:copy &nbsp; F3:theme &nbsp; Ctrl+C:quit</div>
+        <div class="tui-mock">
+          <div class="tui-left">
+            <div class="tui-panel-label">Commands</div>
+            <div class="tui-commands">
+              <div class="tui-cmd selected">prettify</div>
+              <div class="tui-cmd">minify</div>
+              <div class="tui-cmd">validate</div>
+              <div class="tui-cmd">encode</div>
+              <div class="tui-cmd">decode</div>
+              <div class="tui-cmd">snake</div>
+              <div class="tui-cmd">camel</div>
+              <div class="tui-cmd">pascal</div>
+              <div class="tui-cmd">kebab</div>
+              <div class="tui-cmd">upper</div>
+              <div class="tui-cmd">sha256</div>
+              <div class="tui-cmd">sha512</div>
+              <div class="tui-cmd">md5</div>
+              <div class="tui-cmd">generate</div>
+              <div class="tui-cmd">now</div>
+              <div class="tui-cmd">unix</div>
+              <div class="tui-cmd">rfc3339</div>
+            </div>
+          </div>
+          <div class="tui-right">
+            <div class="tui-panel-label">Input</div>
+            <div class="tui-input"><code>{"name":"zuxi","ver":"0.2.1","active":true}</code></div>
+            <div class="tui-panel-label">Output</div>
+            <div class="tui-output"><pre><code>{
+  <span class="c-key">"name"</span>: <span class="c-str">"zuxi"</span>,
+  <span class="c-key">"ver"</span>: <span class="c-str">"0.2.1"</span>,
+  <span class="c-key">"active"</span>: <span class="c-bool">true</span>
+}</code></pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="logo-icon">⚡</span> <strong>zuxi</strong> &mdash; MIT License
+      </div>
+      <div class="footer-right">
+        <a href="https://github.com/nxrvl/zuxi" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/nxrvl/zuxi/releases" target="_blank" rel="noopener">Releases</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

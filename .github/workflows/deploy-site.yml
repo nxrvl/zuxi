@@ -1,0 +1,51 @@
+name: Deploy Documentation Site
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-site:
+    name: Deploy Site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare deployment package
+        run: |
+          mkdir -p staging
+          cp deploy/site/Dockerfile staging/
+          cp deploy/site/docker-compose.yml staging/
+          cp deploy/site/nginx.conf staging/
+          cp -r site staging/
+
+      - name: Clean old site on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: mpanin.me
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            rm -rf /opt/zuxi.mpanin.me/site
+            mkdir -p /opt/zuxi.mpanin.me
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: mpanin.me
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          source: "staging/Dockerfile,staging/docker-compose.yml,staging/nginx.conf,staging/site"
+          target: /opt/zuxi.mpanin.me
+          strip_components: 1
+
+      - name: Build and start container
+        uses: appleboy/ssh-action@v1
+        with:
+          host: mpanin.me
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/zuxi.mpanin.me
+            docker compose up -d --build
